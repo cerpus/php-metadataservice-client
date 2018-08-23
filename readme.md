@@ -1,12 +1,12 @@
-# Cerpus Image Service Client
+# Cerpus Metadata Service Client
 
-PHP library to communicate with the Cerpus Image Service
+PHP library to communicate with the Cerpus Metadata Service
 
 
 ## Installation
 Use composer to require the package
 ```bash
-composer require cerpus/imageservice-client
+composer require cerpus/metadataserviceclient
 ```
 
 
@@ -14,17 +14,17 @@ composer require cerpus/imageservice-client
 When composer has finished, add the service provider to the `providers` array in `config/app.php`
 
 ```php
-Cerpus\ImageServiceClient\Providers\ImageServiceClientServiceProvider::class,
+Cerpus\MetadataServiceClient\Providers\MetadataServiceClientServiceProvider::class,
 ```
 
 Add the following to the `alias` array in `config/app.php`
 ```php
-'ImageService' => \Cerpus\ImageServiceClient\ImageServiceClient::class,
+'MetadataService' => \Cerpus\MetadataServiceClient\MetadataServiceClient::class,
 ```
 
 Publish the config file from the package
 ```bash
-php artisan vendor:publish --provider="Cerpus\ImageServiceClient\Providers\ImageServiceClientServiceProvider" --tag=config
+php artisan vendor:publish --provider="Cerpus\MetadataServiceClient\Providers\MetadataServiceClientServiceProvider" --tag=config
 ```
 
 
@@ -35,7 +35,7 @@ Add service provider in `app/Providers/AppServiceProvider.php`
 ```php
 public function register()
 {
-    $this->app->register(Cerpus\ImageServiceClient\Providers\ImageServiceClientServiceProvider::class);
+    $this->app->register(Cerpus\MetadataServiceClient\Providers\MetadataServiceClientServiceProvider::class);
 }
 
 ```
@@ -48,13 +48,13 @@ $app->register(App\Providers\AppServiceProvider::class);
 
 ### Edit the configuration file
 
-Edit `config/imageservice-client.php`
+Edit `config/metadataservice-client.php`
 ```php
 <?php
 return [
     "adapters" => [
-        "imageservice" => [
-            "handler" => \Cerpus\ImageServiceClient\Adapters\ImageServiceAdapter::class,
+        "cerpus-metadata" => [
+            "handler" => \Cerpus\MetadataServiceClient\Adapters\MetadataServiceAdapter::class,
             "base-url" => '<url to service>',
         ],
     ],
@@ -67,9 +67,9 @@ Example for a developer setup:
 
 return [
     "adapters" => [
-        "imageservice" => [
-            "handler" => \Cerpus\ImageServiceClient\Adapters\ImageServiceAdapter::class,
-	    "base-url" => env('IMAGESERVICE_URL'),
+        "cerpus-metadata" => [
+            "handler" => \Cerpus\MetadataServiceClient\Adapters\MetadataServiceAdapter::class,
+	    "base-url" => env('METADATA_SERVER'),
         ],
     ],
 ];
@@ -78,32 +78,22 @@ return [
 ## Usage
 Resolve from the Laravel Container
 ```php
-$cerpusImage = app(Cerpus\ImageServiceClient\Contracts\ImageServiceContract::class)
+$cerpusMetadata = app(Cerpus\MetadataServiceClient\Contracts\MetadataServiceContract::class)
 ```
 or alias
 ```php
-$cerpusImage = ImageService::<Class Method>
+$cerpusMetadata = MetadataService::<Class Method>
 ```
 or directly
 ```php
-$cerpusImage = new Cerpus\ImageServiceClient\Adapters\ImageServiceAdapter(Client $client, $containerName);
+$cerpusMetadata = new Cerpus\MetadataServiceClient\Adapters\MetadataServiceAdapter(Client $client);
 ```
 The last one is _not_ recommended.
 
 ## Class methods
 Method calls return an object or throws exceptions on failure. 
 
-**get($id)** - Returns an ImageDataObject with info on a particular ID
-
-**store($filePath)** - Creates and uploads a new image in one operation.
-
-**delete($id)** - Delete a file from the image service.
-
-**getHostingUrl($id, ImageParamsObject $params)** - Returns an url where the file can be found.
-
-**getHostingUrls(array $ids)** - Returns an array of urls to images
-
  ## More info
- See the [Confluence Image storage service API documentation](https://confluence.cerpus.com/pages/viewpage.action?pageId=38535277)
+ See the [Confluence Metadata storage service API documentation](https://confluence.cerpus.com/x/hIMJAg)
 
 
