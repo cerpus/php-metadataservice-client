@@ -7,7 +7,7 @@ return [
     "adapters" => [
 
         "cerpus-metadata" => [
-            "handler" => \Cerpus\MetadataServiceClient\Adapters\MetadataServiceAdapter::class,
+            "handler" => \Cerpus\MetadataServiceClient\Adapters\CerpusMetadataServiceAdapter::class,
             "base-url" => "",
             "auth-client" => "none",
             "auth-url" => "",

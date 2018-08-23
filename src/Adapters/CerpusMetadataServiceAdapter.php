@@ -9,7 +9,7 @@ use GuzzleHttp\Client;
  * Class MetadataServiceAdapter
  * @package Cerpus\MetadataServiceClient\Adapters
  */
-class MetadataServiceAdapter implements MetadataServiceContract
+class CerpusMetadataServiceAdapter implements MetadataServiceContract
 {
     /** @var Client */
     private $client;

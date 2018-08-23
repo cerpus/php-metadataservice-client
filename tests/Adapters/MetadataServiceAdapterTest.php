@@ -2,7 +2,7 @@
 
 namespace Cerpus\MetadataServiceClientTests\Adapters;
 
-use Cerpus\MetadataServiceClient\Adapters\MetadataServiceAdapter;
+use Cerpus\MetadataServiceClient\Adapters\CerpusMetadataServiceAdapter;
 use Cerpus\MetadataServiceClientTests\Utils\MetadataServiceTestCase;
 use Cerpus\MetadataServiceClientTests\Utils\Traits\WithFaker;
 
