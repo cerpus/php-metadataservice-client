@@ -66,6 +66,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
     const LEARNINGOBJECT_URL = '/v1/learningobject/%s/%s';
     const ENTITY_GUID_URL = '/v1/learningobject/entity_guid/%s';
     const CREATE_LEARNINGOBJECT_URL = '/v1/learningobject/create';
+    const LEARNINGOBJECT_EDIT_URL = '/v1/learningobject/%s/%s/%s';
 
     /**
      * CerpusMetadataServiceAdapter constructor.
@@ -257,7 +258,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         try {
             $id = $this->getUuid(false);
             if ($id !== false) {
-                $result = $this->client->delete('/v1/learningobject/' . $id . '/' . $metaType . '/' . $metaId);
+                $result = $this->client->delete(sprintf(self::LEARNINGOBJECT_EDIT_URL, $id, $metaType, $metaId));
 
                 return ($result->getStatusCode() === 200);
             }
@@ -281,9 +282,8 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
                 if ($propertyName === null) {
                     throw new MetadataServiceException('Unknown metaType ' . $metaType, 1008);
                 }
-                dd($propertyName, $data);
                 $response = $this->client->put(
-                    '/v1/learningobject/' . $id . '/' . $metaType . '/' . $metaId,
+                    sprintf(self::LEARNINGOBJECT_EDIT_URL, $id, $metaType, $metaId),
                     array(
                         'json' => [
                             $propertyName => $data
@@ -299,7 +299,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
             }
         } catch (\Exception $e) {
             throw new MetadataServiceException(
-                'Failed updaing metadata. Type: "' . $metaType . '", Id: "' . $metaId . '"',
+                'Failed updating metadata. Type: "' . $metaType . '", Id: "' . $metaId . '"',
                 1007,
                 $e
             );

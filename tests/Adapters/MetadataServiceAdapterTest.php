@@ -329,5 +329,262 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
             $metadataservice->createData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, $keyword);
         }
+
+        /**
+         * @test
+         */
+        public function createDataFromArray_noUuid_thenFail()
+        {
+            $client = $this->getClient([
+                new Response(StatusCode::OK, [], ''),
+            ]);
+
+            $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
+            $result = $metadataservice->createDataFromArray([]);
+            $this->assertInternalType('array', $result);
+            $this->assertCount(0, $result);
+        }
+
+        /**
+         * @test
+         */
+        public function createDataFromArray_validArray_thenSuccess()
+        {
+            $entityUuid = $this->faker->uuid;
+            $keyword = $this->faker->word;
+            $client = $this->getClient([
+                new \Exception("Not found", StatusCode::NOT_FOUND),
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'id' => $entityUuid
+                ])),
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'id' => $this->faker->uuid,
+                    'keyword' => $keyword,
+                ])),
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'id' => $this->faker->uuid,
+                    'subjectDeweyCode' => 7,
+                ])),
+            ]);
+
+            $data = [
+                CerpusMetadataServiceAdapter::METATYPE_KEYWORDS => [
+                    (object)['keyword' => $keyword],
+                ],
+                CerpusMetadataServiceAdapter::METATYPE_SUBJECTS => [
+                    (object)['subjectDeweyCode' => 7]
+                ],
+            ];
+            $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
+            $createdData = $metadataservice->createDataFromArray($data);
+            $this->assertInternalType('array', $createdData);
+            $this->assertCount(2, $createdData);
+        }
+
+        /**
+         * @test
+         */
+        public function createDataFromArray_validObject_thenSuccess()
+        {
+            $entityUuid = $this->faker->uuid;
+            $keyword = $this->faker->word;
+            $client = $this->getClient([
+                new \Exception("Not found", StatusCode::NOT_FOUND),
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'id' => $entityUuid
+                ])),
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'id' => $this->faker->uuid,
+                    'keyword' => $keyword,
+                ])),
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'id' => $this->faker->uuid,
+                    'subjectDeweyCode' => 7,
+                ])),
+            ]);
+
+            $data = [
+                CerpusMetadataServiceAdapter::METATYPE_KEYWORDS => (object)['keyword' => $keyword],
+                CerpusMetadataServiceAdapter::METATYPE_SUBJECTS => (object)['subjectDeweyCode' => 7],
+            ];
+            $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
+            $createdData = $metadataservice->createDataFromArray($data);
+            $this->assertInternalType('array', $createdData);
+            $this->assertCount(2, $createdData);
+        }
+
+        /**
+         * @test
+         * @expectedException Cerpus\MetadataServiceClient\Exceptions\MetadataServiceException
+         * @expectedExceptionCode 1009
+         * @expectedExceptionMessage Failed creating data from array
+         */
+        public function createDataFromArray_invalidParameters_thenFail()
+        {
+            $entityUuid = $this->faker->uuid;
+            $keyword = $this->faker->word;
+            $client = $this->getClient([
+                new \Exception("Not found", StatusCode::NOT_FOUND),
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'id' => $entityUuid
+                ])),
+                new Response(StatusCode::BAD_REQUEST, [], "Invalid structure"),
+            ]);
+
+            $data = [
+                CerpusMetadataServiceAdapter::METATYPE_KEYWORDS => (object)['keyword' => $keyword],
+            ];
+            $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
+            $metadataservice->createDataFromArray($data);
+        }
+
+        /**
+         * @test
+         */
+        public function deleteData_noUuid_thenFail()
+        {
+            $client = $this->getClient([
+                new \Exception("Not found", StatusCode::NOT_FOUND),
+                new \Exception("Not found", StatusCode::NOT_FOUND),
+            ]);
+            $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
+            $this->assertFalse($metadataservice->deleteData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, $this->faker->uuid));
+        }
+
+        /**
+         * @test
+         */
+        public function deleteData_valid_thenSuccess()
+        {
+            $entityUuid = $this->faker->uuid;
+            $client = $this->getClient([
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'id' => $entityUuid
+                ])),
+                new Response(StatusCode::OK),
+            ]);
+
+            $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
+            $this->assertTrue($metadataservice->deleteData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, $this->faker->uuid));
+        }
+
+        /**
+         * @test
+         * @expectedException Cerpus\MetadataServiceClient\Exceptions\MetadataServiceException
+         * @expectedExceptionCode 1006
+         * @expectedExceptionMessage Failed deleting metadata. Type: keywords, Id: uuidTest
+         */
+        public function deleteData_valid_thenFail()
+        {
+            $entityUuid = $this->faker->uuid;
+            $client = $this->getClient([
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'id' => $entityUuid
+                ])),
+                new Response(StatusCode::NOT_FOUND),
+            ]);
+
+            $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
+            $metadataservice->deleteData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, 'uuidTest');
+        }
+
+        /**
+         * @test
+         */
+        public function deleteData_invalidResponse_thenFail()
+        {
+            $entityUuid = $this->faker->uuid;
+            $client = $this->getClient([
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'id' => $entityUuid
+                ])),
+                new Response(StatusCode::ACCEPTED),
+            ]);
+
+            $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
+            $this->assertFalse($metadataservice->deleteData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, 'uuidTest'));
+        }
+
+        /**
+         * @test
+         */
+        public function updateData_noUuid_thenFail()
+        {
+            $client = $this->getClient([
+                new \Exception("Not found", StatusCode::NOT_FOUND),
+                new \Exception("Not found", StatusCode::NOT_FOUND),
+            ]);
+            $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
+            $this->assertFalse($metadataservice->updateData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, $this->faker->uuid, "dummy"));
+        }
+
+        /**
+         * @test
+         * @expectedException Cerpus\MetadataServiceClient\Exceptions\MetadataServiceException
+         * @expectedExceptionCode 1007
+         * @expectedExceptionMessage Failed updating metadata. Type: "NotValidMetaType", Id: "uuidTest"
+         */
+        public function updateData_invalidType_thenFail()
+        {
+            $keyword = $this->faker->word;
+            $client = $this->getClient([
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'id' => $this->faker->uuid
+                ])),
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'id' => $this->faker->uuid,
+                    'keyword' => $keyword,
+                ])),
+
+            ]);
+
+            $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
+            $metadataservice->updateData("NotValidMetaType", 'uuidTest', $keyword);
+        }
+
+        /**
+         * @test
+         */
+        public function updateData_validData_thenSuccess()
+        {
+            $keyword = $this->faker->word;
+            $client = $this->getClient([
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'id' => $this->faker->uuid
+                ])),
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'id' => $this->faker->uuid,
+                    'keyword' => $keyword,
+                ])),
+
+            ]);
+
+            $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
+            $updatedData = $metadataservice->updateData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, $this->faker->uuid, $keyword);
+            $this->assertInternalType('object', $updatedData);
+            $this->assertObjectHasAttribute('id', $updatedData);
+            $this->assertObjectHasAttribute('keyword', $updatedData);
+        }
+
+        /**
+         * @test
+         */
+        public function updateData_invalidResponse_thenFail()
+        {
+            $keyword = $this->faker->word;
+            $client = $this->getClient([
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'id' => $this->faker->uuid
+                ])),
+                new Response(StatusCode::ACCEPTED, [], json_encode((object)[
+                    'id' => $this->faker->uuid,
+                    'keyword' => $keyword,
+                ])),
+
+            ]);
+
+            $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
+            $this->assertFalse($metadataservice->updateData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, $this->faker->uuid, $keyword));
+        }
     }
 }
