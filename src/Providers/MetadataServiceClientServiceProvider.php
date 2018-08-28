@@ -61,7 +61,7 @@ class MetadataServiceClientServiceProvider extends ServiceProvider
             ]));
         });
 
-        $this->app->bind(MetadataServiceContract::class, function ($app) {
+        $this->app->bind(MetadataServiceContract::class, function ($app, $params) {
             $client = $app->make(MetadataServiceClientContract::class);
             $MetadataServiceClientConfig = $app['config']->get(MetadataServiceClient::$alias);
             $adapter = $MetadataServiceClientConfig['default'];
@@ -69,7 +69,9 @@ class MetadataServiceClientServiceProvider extends ServiceProvider
             $this->checkConfig($MetadataServiceClientConfig, $adapter);
 
             $adapterConfig = $MetadataServiceClientConfig["adapters"][$adapter];
-            return new $adapterConfig['handler']($client, $adapterConfig['prefix']);
+            $entityType = !empty($params['entityType']) ? $params['entityType'] : null;
+            $entityId = !empty($params['entityId']) ? $params['entityId'] : null;
+            return new $adapterConfig['handler']($client, $adapterConfig['prefix'], $entityType, $entityId);
         });
 
         $this->mergeConfigFrom(MetadataServiceClient::getConfigPath(), MetadataServiceClient::$alias);

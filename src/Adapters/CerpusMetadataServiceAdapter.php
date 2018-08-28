@@ -74,10 +74,12 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
      * @param Client $client
      * @param string $prefix Prefix for the entity id
      */
-    public function __construct(Client $client, $prefix)
+    public function __construct(Client $client, $prefix, $entityType = null, $entityId = null)
     {
         $this->client = $client;
         $this->prefix = $prefix;
+        $this->entityType = $entityType;
+        $this->entityId = $entityId;
         $this->updateEntityGuid();
     }
 
