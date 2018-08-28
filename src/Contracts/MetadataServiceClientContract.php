@@ -6,7 +6,7 @@ use Cerpus\MetadataServiceClient\DataObjects\OauthSetup;
 use GuzzleHttp\ClientInterface;
 
 /**
- * Interface ImageServiceClientContract
+ * Interface MetadataServiceClientContract
  * @package Cerpus\CoreClient\Contracts
  */
 interface MetadataServiceClientContract

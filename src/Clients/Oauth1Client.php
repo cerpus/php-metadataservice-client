@@ -27,7 +27,7 @@ class Oauth1Client implements MetadataServiceClientContract
         $stack = HandlerStack::create();
 
         $middleware = new Oauth1([
-            'consumer_key' => $config->authKey,
+            'consumer_key' => $config->authUser,
             'consumer_secret' => $config->authSecret,
             'token' => $config->authToken,
             'token_secret' => $config->authTokenSecret,

@@ -31,12 +31,12 @@ class MetadataServiceClientServiceProvider extends ServiceProvider
     {
 
         $this->app->bind(MetadataServiceClientContract::class, function ($app) {
-            $ImageServiceClientConfig = $app['config']->get(MetadataServiceClient::$alias);
-            $adapter = $ImageServiceClientConfig['default'];
+            $MetadataServiceClientConfig = $app['config']->get(MetadataServiceClient::$alias);
+            $adapter = $MetadataServiceClientConfig['default'];
 
-            $this->checkConfig($ImageServiceClientConfig, $adapter);
+            $this->checkConfig($MetadataServiceClientConfig, $adapter);
 
-            $adapterConfig = array_merge($this->getDefaultClientStructure(), $ImageServiceClientConfig["adapters"][$adapter]);
+            $adapterConfig = array_merge($this->getDefaultClientStructure(), $MetadataServiceClientConfig["adapters"][$adapter]);
             $client = strtolower($adapterConfig['auth-client']);
             /** @var MetadataServiceClientContract $clientClass */
             switch ($client) {
@@ -63,13 +63,13 @@ class MetadataServiceClientServiceProvider extends ServiceProvider
 
         $this->app->bind(MetadataServiceContract::class, function ($app) {
             $client = $app->make(MetadataServiceClientContract::class);
-            $ImageServiceClientConfig = $app['config']->get(MetadataServiceClient::$alias);
-            $adapter = $ImageServiceClientConfig['default'];
+            $MetadataServiceClientConfig = $app['config']->get(MetadataServiceClient::$alias);
+            $adapter = $MetadataServiceClientConfig['default'];
 
-            $this->checkConfig($ImageServiceClientConfig, $adapter);
+            $this->checkConfig($MetadataServiceClientConfig, $adapter);
 
-            $adapterConfig = $ImageServiceClientConfig["adapters"][$adapter];
-            return new $adapterConfig['handler']($client, config("app.key"));
+            $adapterConfig = $MetadataServiceClientConfig["adapters"][$adapter];
+            return new $adapterConfig['handler']($client, $adapterConfig['prefix']);
         });
 
         $this->mergeConfigFrom(MetadataServiceClient::getConfigPath(), MetadataServiceClient::$alias);

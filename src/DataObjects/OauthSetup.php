@@ -23,5 +23,5 @@ class OauthSetup
      * @var string $tokenSecret
      * @var string $token
      */
-    public $baseUrl, $authKey, $authSecret, $authUrl, $authTokenSecret, $authToken;
+    public $baseUrl, $authUser, $authSecret, $authUrl, $authTokenSecret, $authToken;
 }

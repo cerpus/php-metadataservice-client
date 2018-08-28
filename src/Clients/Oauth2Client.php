@@ -28,7 +28,7 @@ class Oauth2Client implements MetadataServiceClientContract
             'base_uri' => $config->authUrl . "/oauth/token",
         ]);
         $reauth_config = [
-            "client_id" => $config->authKey,
+            "client_id" => $config->authUser,
             "client_secret" => $config->authSecret,
         ];
         $grant_type = new ClientCredentials($reauth_client, $reauth_config);
