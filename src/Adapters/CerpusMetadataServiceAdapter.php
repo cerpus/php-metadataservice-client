@@ -18,13 +18,31 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
 {
     /** @var Client */
     private $client;
+    /**
+     * @var null
+     */
     private $entityType;
+    /**
+     * @var null
+     */
     private $entityId;
+    /**
+     * @var string
+     */
     private $entityGuid = '';
+    /**
+     * @var string
+     */
     private $prefix = '';
+    /**
+     * @var bool
+     */
     private $metadataId = false;
 
     // metaType => propertyName
+    /**
+     * @var array
+     */
     private $propertyMapping = [
         'educational_standards' => 'educationalStandard',
         'educational_uses' => 'educationalUse',
@@ -67,12 +85,15 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
     const ENTITY_GUID_URL = '/v1/learningobject/entity_guid/%s';
     const CREATE_LEARNINGOBJECT_URL = '/v1/learningobject/create';
     const LEARNINGOBJECT_EDIT_URL = '/v1/learningobject/%s/%s/%s';
+    const LEARNINGOBJECT_LIMITED_CREATE_URL = '/v1/learningobject/%s/%s/create';
 
     /**
      * CerpusMetadataServiceAdapter constructor.
      *
      * @param Client $client
      * @param string $prefix Prefix for the entity id
+     * @param string $entityType
+     * @param string $entityId
      */
     public function __construct(Client $client, $prefix, $entityType = null, $entityId = null)
     {
@@ -95,6 +116,10 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         }
     }
 
+    /**
+     * @param string $entityType
+     * @return $this
+     */
     public function setEntityType($entityType)
     {
         $this->entityType = $entityType;
@@ -103,6 +128,10 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         return $this;
     }
 
+    /**
+     * @param string $entityId
+     * @return $this
+     */
     public function setEntityId($entityId)
     {
         $this->entityId = $entityId;
@@ -144,6 +173,10 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         throw new MetadataServiceException('LearningObject not found', 1001);
     }
 
+    /**
+     * @return array
+     * @throws MetadataServiceException
+     */
     public function getAllMetaData()
     {
         $start = microtime(true);
@@ -194,15 +227,15 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
                 if ($propertyName === null) {
                     throw new MetadataServiceException('Unknown metaType ' . $metaType, 1004);
                 }
-                $urlPostFix = '';
+                $url = sprintf(self::LEARNINGOBJECT_URL, $id, $metaType);
                 if ($metaType !== self::METATYPE_ESTIMATED_DURATION &&
                     $metaType !== self::METATYPE_DIFFICULTY &&
                     $metaType !== self::METATYPE_PUBLIC_STATUS
                 ) {
-                    $urlPostFix = '/create';
+                    $url = sprintf(self::LEARNINGOBJECT_LIMITED_CREATE_URL, $id, $metaType);
                 }
                 $response = $this->client->post(
-                    sprintf(self::LEARNINGOBJECT_URL, $id, $metaType) . $urlPostFix,
+                    $url,
                     [
                         'json' => [
                             $propertyName => $data
@@ -225,6 +258,11 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         }
     }
 
+    /**
+     * @param array $dataArray
+     * @return array
+     * @throws MetadataServiceException
+     */
     public function createDataFromArray(Array $dataArray)
     {
         $result = [];
@@ -255,6 +293,12 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         return $result;
     }
 
+    /**
+     * @param $metaType
+     * @param $metaId
+     * @return bool
+     * @throws MetadataServiceException
+     */
     public function deleteData($metaType, $metaId)
     {
         try {
@@ -275,6 +319,13 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         return false;
     }
 
+    /**
+     * @param $metaType
+     * @param $metaId
+     * @param $data
+     * @return bool|mixed
+     * @throws MetadataServiceException
+     */
     public function updateData($metaType, $metaId, $data)
     {
         try {
@@ -310,35 +361,11 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         return false;
     }
 
-    public function fetchLearningGoal($id = '')
-    {
-        if (empty($id)) {
-            return [];
-        }
-
-        $goal = new \stdClass();
-        $goal->id = $id;
-        $goal->title = "Goal #$i title";
-
-        return $goal;
-    }
-
-    public function fetchLearningGoals($id = [])
-    {
-        if (empty($id)) {
-            return [];
-        }
-        $allGoals = [];
-        foreach ($id as $goalId) {
-            $goal = new \stdClass();
-            $goal->id = $goalId;
-            $goal->title = "Goal #$goalId title";
-            $allGoals[] = $goal;
-        }
-
-        return $allGoals;
-    }
-
+    /**
+     * @param $goalId
+     * @return bool|mixed
+     * @throws \GuzzleHttp\Exception\GuzzleException
+     */
     public function addGoal($goalId)
     {
         $id = $this->getUuid(true);

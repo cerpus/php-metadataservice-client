@@ -3,11 +3,11 @@
 namespace {
     class Log
     {
-        public static function error()
+        public static function error($error)
         {
         }
 
-        public static function debug()
+        public static function debug($message)
         {
         }
     }
@@ -52,6 +52,19 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
         {
             $client = $this->getClient([
                 new Response(StatusCode::OK, [], ''),
+            ]);
+
+            $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
+            $this->assertFalse($metadataservice->getUuid(false));
+        }
+
+        /**
+         * @test
+         */
+        public function getUuid_badRequest_thenFail()
+        {
+            $client = $this->getClient([
+                new Response(StatusCode::BAD_REQUEST),
             ]);
 
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);

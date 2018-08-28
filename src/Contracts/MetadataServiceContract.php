@@ -24,10 +24,6 @@ interface MetadataServiceContract
 
     public function updateData($metaType, $metaId, $data);
 
-    public function fetchLearningGoal($id = '');
-
-    public function fetchLearningGoals($id = []);
-
     public function addGoal($goalId);
 
     public function getUuid($create = false);
