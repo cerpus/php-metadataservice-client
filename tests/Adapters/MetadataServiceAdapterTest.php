@@ -599,5 +599,45 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
             $this->assertFalse($metadataservice->updateData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, $this->faker->uuid, $keyword));
         }
+
+        /**
+         * @test
+         * @expectedException Cerpus\MetadataServiceClient\Exceptions\MetadataServiceException
+         * @expectedExceptionCode 1003
+         * @expectedExceptionMessage Failed creating LearningObject
+         */
+        public function addGoal_noUuid_thenFail()
+        {
+            $client = $this->getClient([
+                new \Exception("Not found", StatusCode::NOT_FOUND),
+                new \Exception("Not found", StatusCode::NOT_FOUND),
+            ]);
+            $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
+            $this->assertFalse($metadataservice->addGoal($this->faker->uuid));
+        }
+
+        /**
+         * @test
+         */
+        public function addGoal_valid_thenSuccess()
+        {
+            $learningGoalId = $this->faker->uuid;
+            $client = $this->getClient([
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'id' => $this->faker->uuid
+                ])),
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'id' => $this->faker->uuid,
+                    'learningGoalId' => $learningGoalId,
+                ])),
+
+            ]);
+
+            $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
+            $createData = $metadataservice->addGoal($learningGoalId);
+            $this->assertInternalType('object', $createData);
+            $this->assertObjectHasAttribute('id', $createData);
+            $this->assertObjectHasAttribute('learningGoalId', $createData);
+        }
     }
 }

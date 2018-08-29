@@ -363,23 +363,12 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
 
     /**
      * @param $goalId
-     * @return bool|mixed
-     * @throws \GuzzleHttp\Exception\GuzzleException
+     * @return mixed
+     * @throws MetadataServiceException
      */
     public function addGoal($goalId)
     {
-        $id = $this->getUuid(true);
-        if ($id !== false) {
-            $endPoint = '/v1/learningobject/' . $id . '/learning_goals/create';
-            $result = $this->client->request('POST', $endPoint, [
-                'json' => [
-                    'learningGoalId' => $goalId,
-                ]
-            ]);
-            return json_decode($result->getBody()->getContents());
-        }
-
-        return false;
+        return $this->createData(self::METATYPE_LEARNING_GOALS, $goalId);
     }
 
     /**
