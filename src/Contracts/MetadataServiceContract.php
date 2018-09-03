@@ -28,5 +28,6 @@ interface MetadataServiceContract
 
     public function getUuid($create = false);
 
+    public function getKeywords($searchText);
 
 }

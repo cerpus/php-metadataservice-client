@@ -2,6 +2,7 @@
 
 namespace Cerpus\MetadataServiceClient\Adapters;
 
+use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Psr7\Response;
 use Log;
 use GuzzleHttp\Promise;
@@ -86,6 +87,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
     const CREATE_LEARNINGOBJECT_URL = '/v1/learningobject/create';
     const LEARNINGOBJECT_EDIT_URL = '/v1/learningobject/%s/%s/%s';
     const LEARNINGOBJECT_LIMITED_CREATE_URL = '/v1/learningobject/%s/%s/create';
+    const KEYWORDS = '/v1/keywords';
 
     /**
      * CerpusMetadataServiceAdapter constructor.
@@ -445,6 +447,22 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         }
 
         return null;
+    }
+
+    public function getKeywords($searchText)
+    {
+        try {
+            $response = $this->client->get(self::KEYWORDS, [
+                'query' => [
+                    'prefix' => $searchText
+                ]
+            ]);
+
+            $result = $response->getBody()->getContents();
+            return json_decode($result);
+        } catch (ClientException $exception) {
+            throw new MetadataServiceException('Could not load keywords', 1010, $exception);
+        }
     }
 
 }

@@ -639,5 +639,43 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
             $this->assertObjectHasAttribute('id', $createData);
             $this->assertObjectHasAttribute('learningGoalId', $createData);
         }
+
+        /**
+         * @test
+         */
+        public function getKeywords_validSearchtext_thenSuccess()
+        {
+            $client = $this->getClient([
+                new Response(StatusCode::OK, [], json_encode([
+                    (object)[
+                        "id" => "8e60818f-602b-439b-a6b5-98e999f603ad",
+                        "keyword" => "mattematikk"
+                    ],
+                    (object)[
+                        "id" => "99b45447-42d9-4c9f-8b98-039993c9959c",
+                        "keyword" => "musikk"
+                    ]
+                ])),
+            ]);
+            $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
+            $keywords = $metadataservice->getKeywords("m");
+            $this->assertInternalType('array', $keywords);
+            $this->assertCount(2, $keywords);
+        }
+
+        /**
+         * @test
+         * @expectedException Cerpus\MetadataServiceClient\Exceptions\MetadataServiceException
+         * @expectedExceptionCode 1010
+         * @expectedExceptionMessage Could not load keywords
+         */
+        public function getKeywords_invalidServerResponse_thenFail()
+        {
+            $client = $this->getClient([
+                new Response(StatusCode::BAD_REQUEST),
+            ]);
+            $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
+            $metadataservice->getKeywords("m");
+        }
     }
 }
