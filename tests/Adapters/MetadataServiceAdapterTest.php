@@ -264,8 +264,8 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
         /**
          * @test
          * @expectedException Cerpus\MetadataServiceClient\Exceptions\MetadataServiceException
-         * @expectedExceptionCode 1004
-         * @expectedExceptionMessage Unknown metaType Unknown_type
+         * @expectedExceptionCode 1002
+         * @expectedExceptionMessage Failed setting metadata of type Unknown_type
          */
         public function createData_unknownType_thenFail()
         {
@@ -643,7 +643,7 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
         /**
          * @test
          */
-        public function getKeywords_validSearchtext_thenSuccess()
+        public function searchForKeywords_validSearchtext_thenSuccess()
         {
             $client = $this->getClient([
                 new Response(StatusCode::OK, [], json_encode([
@@ -658,7 +658,7 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
                 ])),
             ]);
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
-            $keywords = $metadataservice->getKeywords("m");
+            $keywords = $metadataservice->searchForKeywords("m");
             $this->assertInternalType('array', $keywords);
             $this->assertCount(2, $keywords);
         }
@@ -669,13 +669,13 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
          * @expectedExceptionCode 1010
          * @expectedExceptionMessage Could not load keywords
          */
-        public function getKeywords_invalidServerResponse_thenFail()
+        public function searchForKeywords_invalidServerResponse_thenFail()
         {
             $client = $this->getClient([
                 new Response(StatusCode::BAD_REQUEST),
             ]);
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
-            $metadataservice->getKeywords("m");
+            $metadataservice->searchForKeywords("m");
         }
     }
 }
