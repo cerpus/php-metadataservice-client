@@ -2,14 +2,15 @@
 
 namespace Cerpus\MetadataServiceClient\Adapters;
 
-use GuzzleHttp\Exception\ClientException;
-use GuzzleHttp\Psr7\Response;
-use Log;
-use GuzzleHttp\Promise;
 use Cerpus\MetadataServiceClient\Contracts\MetadataServiceContract;
 use Cerpus\MetadataServiceClient\Exceptions\MetadataServiceException;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ClientException;
+use GuzzleHttp\Promise;
+use GuzzleHttp\Psr7\Response;
+use Log;
 use Ramsey\Uuid\Uuid;
+use function GuzzleHttp\json_decode as guzzle_json_decode;
 
 /**
  * Class MetadataServiceAdapter
@@ -20,11 +21,11 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
     /** @var Client */
     private $client;
     /**
-     * @var null
+     * @var string|null
      */
     private $entityType;
     /**
-     * @var null
+     * @var string|null
      */
     private $entityId;
     /**
@@ -60,34 +61,17 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         'public' => 'is_public',
     ];
 
-    const METATYPE_EDUCATIONAL_STANDARD = 'educational_standards';
-    const METATYPE_EDUCATIONAL_USES = 'educational_uses';
-    const METATYPE_KEYWORDS = 'keywords';
-    const METATYPE_LANGUAGES = 'languages';
-    const METATYPE_LEARNING_GOALS = 'learning_goals';
-    const METATYPE_MATERIAL_TYPES = 'material_types';
-    const METATYPE_PRIMARY_USERS = 'primary_users';
-    const METATYPE_SUBJECTS = 'subjects';
-    const METATYPE_TARGET_AUDIENCE = 'target_audiences';
-    const METATYPE_EDUCATIONAL_LEVEL = 'levels';
-    const METATYPE_ESTIMATED_DURATION = 'estimated_duration';
-    const METATYPE_DIFFICULTY = 'difficulty';
-    const METATYPE_PUBLIC_STATUS = 'public';
+    private $customFieldDefinitions = [];
 
-    const ENTITYTYPE_LEARNINGOBJECT = 'learningobject';
-    const ENTITYTYPE_COURSE = 'course';
-    const ENTITYTYPE_MODULE = 'module';
-    const ENTITYTYPE_ACTIVITY = 'activity';
-    const ENTITYTYPE_RESOURCE = 'resource';
-    const ENTITYTYPE_USER = 'user';
-    const ENTITYTYPE_LEARNINGGOAL = 'learninggoal';
-
-    const LEARNINGOBJECT_URL = '/v1/learningobject/%s/%s';
-    const ENTITY_GUID_URL = '/v1/learningobject/entity_guid/%s';
-    const CREATE_LEARNINGOBJECT_URL = '/v1/learningobject/create';
-    const LEARNINGOBJECT_EDIT_URL = '/v1/learningobject/%s/%s/%s';
-    const LEARNINGOBJECT_LIMITED_CREATE_URL = '/v1/learningobject/%s/%s/create';
-    const KEYWORDS = '/v1/keywords';
+    private const LEARNINGOBJECT_URL = '/v1/learningobject/%s/%s';
+    private const ENTITY_GUID_URL = '/v1/learningobject/entity_guid/%s';
+    private const CREATE_LEARNINGOBJECT_URL = '/v1/learningobject/create';
+    private const LEARNINGOBJECT_EDIT_URL = '/v1/learningobject/%s/%s/%s';
+    private const LEARNINGOBJECT_LIMITED_CREATE_URL = '/v1/learningobject/%s/%s/create';
+    private const KEYWORDS = '/v1/keywords';
+    private const LEARNING_OBJECTS_URL = '/v2/learning_objects/%s';
+    private const CUSTOM_FIELDS_URL = '/v2/learning_objects/%s/field_values';
+    private const CUSTOM_FIELD_VALUE_URL = '/v2/learning_objects/%s/field_values/%s';
 
     /**
      * CerpusMetadataServiceAdapter constructor.
@@ -97,7 +81,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
      * @param string $entityType
      * @param string $entityId
      */
-    public function __construct(Client $client, $prefix, $entityType = null, $entityId = null)
+    public function __construct(Client $client, string $prefix = '', $entityType = null, $entityId = null)
     {
         $this->client = $client;
         $this->prefix = $prefix;
@@ -252,12 +236,11 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
 
                 return false;
             }
-            throw new MetadataServiceException('Failed creating LearningObject', 1003);
-        } catch (MetadataServiceException $e) {
-            throw $e;
         } catch (\Exception $e) {
             throw new MetadataServiceException('Failed setting metadata of type ' . $metaType, 1002, $e);
         }
+
+        throw new MetadataServiceException('Failed creating LearningObject', 1003);
     }
 
     /**
@@ -265,7 +248,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
      * @return array
      * @throws MetadataServiceException
      */
-    public function createDataFromArray(Array $dataArray)
+    public function createDataFromArray(array $dataArray)
     {
         $result = [];
         try {
@@ -296,8 +279,8 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
     }
 
     /**
-     * @param $metaType
-     * @param $metaId
+     * @param string $metaType one of METATYPE_* constants
+     * @param string $metaId
      * @return bool
      * @throws MetadataServiceException
      */
@@ -322,9 +305,9 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
     }
 
     /**
-     * @param $metaType
-     * @param $metaId
-     * @param $data
+     * @param string $metaType
+     * @param string $metaId
+     * @param mixed $data
      * @return bool|mixed
      * @throws MetadataServiceException
      */
@@ -364,7 +347,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
     }
 
     /**
-     * @param $goalId
+     * @param string $goalId
      * @return mixed
      * @throws MetadataServiceException
      */
@@ -440,7 +423,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
      * @param string $metaType Type to get the property name for, one on METATYPE_* constants
      * @return string|null  Property name or null if it does not exist
      */
-    private function getPropertyName($metaType)
+    private function getPropertyName($metaType): ?string
     {
         if (array_key_exists($metaType, $this->propertyMapping)) {
             return $this->propertyMapping[$metaType];
@@ -449,7 +432,16 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         return null;
     }
 
-    public function getKeywords($searchText)
+    /**
+     * @return string[]
+     * @throws MetadataServiceException
+     */
+    public function getKeywords(): array
+    {
+        return array_column($this->getData(self::METATYPE_KEYWORDS), 'keyword');
+    }
+
+    public function searchForKeywords(string $searchText)
     {
         try {
             $response = $this->client->get(self::KEYWORDS, [
@@ -465,4 +457,197 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         }
     }
 
+    public function getCustomFieldDefinition(string $fieldName): string
+    {
+        if (array_key_exists($fieldName, $this->customFieldDefinitions)) {
+            return $this->customFieldDefinitions[$fieldName];
+        }
+
+        try {
+            $response = $this->client->get('/v2/field_definitions/' . rawurlencode($fieldName));
+            $result = json_decode($response->getBody()->getContents(), false);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new \Exception("Unable to decode field definition");
+            }
+            $this->customFieldDefinitions[$fieldName] = $result;
+
+            return $this->customFieldDefinitions[$fieldName];
+        } catch (\Throwable $t) {
+            Log::error(__METHOD__ . ': ' . $t->getMessage());
+        }
+        return null;
+    }
+
+    public function addCustomFieldDefinition(string $fieldName, string $dataType, bool $isCollection = false, bool $requiresUniqueValues = false)
+    {
+        try {
+            $response = $this->client->post('/v2/field_definitions', [
+                'json' => [
+                    'name' => $fieldName,
+                    'dataType' => $dataType,
+                    'isCollection' => $isCollection,
+                    'requiresUniqueValues' => $requiresUniqueValues
+                ]
+            ]);
+            return json_decode($response->getBody()->getContents(), false);
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+            return null;
+        }
+    }
+
+    public function getCustomFieldValues(string $fieldName): array
+    {
+        $response = $this->client->get(sprintf(self::CUSTOM_FIELDS_URL, rawurlencode($this->entityGuid)), [
+            'query' => [
+                'fieldName' => $fieldName,
+            ],
+        ]);
+
+        $result = json_decode($response->getBody()->getContents(), true);
+
+        if (!is_array($result)) {
+            throw new \Exception('Data format error');
+        }
+
+        return array_column($result, 'value');
+    }
+
+    public function setCustomFieldValue(string $fieldName, $value, bool $deduplicateFieldValues = false)
+    {
+        if (!$fieldDefinition = $this->getCustomFieldDefinition($fieldName)) {
+            throw new MetadataServiceException("Field '$fieldName' is not defined in the Metadata service. Please define it using the 'addCustomFieldDefinition' method before attempting to set a value.");
+        }
+
+        if ($fieldDefinition->isCollection) {
+            return $this->addCustomFieldCollectionValues($fieldName, $value, $deduplicateFieldValues);
+        } else {
+            return $this->setCustomFieldPlainValue($fieldName, $value);
+        }
+    }
+
+    protected function setCustomFieldPlainValue(string $fieldName, $value)
+    {
+        try {
+            $url = sprintf(self::CUSTOM_FIELD_VALUE_URL, rawurlencode($this->entityGuid), rawurlencode($fieldName));
+            $response = $this->client->put($url, ['json' => ['value' => $value]]);
+
+            return json_decode($response->getBody()->getContents(), false);
+        } catch (\Throwable $t) {
+            Log::error(__METHOD__ . ': (' . $t->getCode() . ') ' . $t->getMessage());
+            return null;
+        }
+    }
+
+    public function setCustomFieldValues(string $fieldName, $value, bool $deduplicateFieldValues = false)
+    {
+        $fieldDefinition = $this->getCustomFieldDefinition($fieldName);
+
+        if (!$fieldDefinition) {
+            throw new MetadataServiceException("Field '$fieldName' is not defined in the Metadata service. Please define it using the 'addCustomFieldDefinition' method before attempting to set a value.");
+        }
+
+        if ($fieldDefinition->isCollection) {
+            return $this->addCustomFieldCollectionValues($fieldName, $value, $deduplicateFieldValues);
+        } else {
+            return $this->setCustomFieldPlainValue($fieldName, $value);
+        }
+    }
+
+    public function addCustomFieldCollectionValues(string $fieldName, $values = null, bool $deduplicateFieldValues = false)
+    {
+        if (!$fieldName || $values === null) {
+            return;
+        }
+
+        if (\is_string($values)) {
+            $values = [$values];
+        }
+
+        $values = collect($values);
+
+        try {
+            // Default is to allow all values, even if they're duplicates
+            $existingCollectionFieldValues = collect([]);
+            if ($deduplicateFieldValues) {
+                // Get the list of existing values
+                $existingCollectionFieldValues = collect($this->getCustomFieldValues($fieldName));
+                // Remove duplicates from the supplied values as well
+                $values = $values->unique();
+            }
+
+            return $values->filter(function ($v) use ($existingCollectionFieldValues) {
+                return !$existingCollectionFieldValues->contains($v);
+            })
+                ->map(function ($v) use ($fieldName) {
+                    return $this->addCustomFieldCollectionValue($fieldName, $v);
+                });
+
+        } catch (\Throwable $t) {
+            Log::error(__METHOD__ . ': (' . $t->getCode() . ')' . $t->getMessage());
+            return null;
+        }
+
+        $url = sprintf(self::CUSTOM_FIELDS_URL, rawurlencode($this->entityGuid));
+        $response = $this->client->post($url, [
+            'json' => [
+                'name' => $fieldName,
+                'value' => $value,
+            ],
+        ]);
+
+        return guzzle_json_decode($response->getBody()->getContents(), false);
+    }
+
+    /**
+     * @throws MetadataServiceException
+     */
+    public function fetchAllCustomFields(): array
+    {
+        $fields = [];
+
+        try {
+            $url = sprintf(self::CUSTOM_FIELDS_URL, rawurlencode($this->entityGuid));
+            $response = $this->client->get($url);
+            $fields = json_decode($response->getBody()->getContents());
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new MetadataServiceException('Error decoding response when getting all custom field values.');
+            }
+        } catch (ClientException $e) {
+            // Learning object not found is OK. Everything else is not OK.
+            if ($e->getCode() !== 404) {
+                throw new MetadataServiceException('HTTP error', $e->getCode(), $e);
+            }
+        }
+
+        return $fields;
+    }
+
+    public function getLearningObject(bool $create = false)
+    {
+        $learningObject = null;
+
+        try {
+            $path = sprintf(self::LEARNING_OBJECTS_URL, $this->entityGuid);
+            $response = $this->client->get($path);
+            $object = json_decode($response->getBody()->getContents(), false);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new MetadataServiceException("Error decoding learning object.");
+            }
+            $learningObject = $object;
+        } catch (ClientException $e) {
+            // Learning object not found is OK. Everything else is not OK.
+            if ($e->getCode() !== 404) {
+                throw $e;
+            }
+            if ($create) {
+                $this->setEntityType(self::ENTITYTYPE_RESOURCE);
+                if ($id = $this->createId()) {
+                    $learningObject = $this->getLearningObject();
+                }
+            }
+        }
+
+        return $learningObject;
+    }
 }

@@ -6,7 +6,7 @@ PHP library to communicate with the Cerpus Metadata Service
 ## Installation
 Use composer to require the package
 ```bash
-composer require cerpus/metadataserviceclient
+composer require cerpus/metadataservice-client
 ```
 
 
@@ -68,8 +68,8 @@ Example for a developer setup:
 return [
     "adapters" => [
         "cerpus-metadata" => [
-            "handler" => \Cerpus\MetadataServiceClient\Adapters\MetadataServiceAdapter::class,
-	    "base-url" => env('METADATA_SERVER'),
+            "handler" => \Cerpus\MetadataServiceClient\Adapters\CerpusMetadataServiceAdapter::class,
+            "base-url" => env('METADATA_SERVER'),
         ],
     ],
 ];
@@ -82,11 +82,11 @@ $cerpusMetadata = app(Cerpus\MetadataServiceClient\Contracts\MetadataServiceCont
 ```
 or alias
 ```php
-$cerpusMetadata = MetadataService::<Class Method>
+$cerpusMetadata = CerpusMetadataServiceAdapter::<Class Method>
 ```
 or directly
 ```php
-$cerpusMetadata = new Cerpus\MetadataServiceClient\Adapters\MetadataServiceAdapter(Client $client);
+$cerpusMetadata = new Cerpus\MetadataServiceClient\Adapters\CerpusMetadataServiceAdapter(Client $client);
 ```
 The last one is _not_ recommended.
 
