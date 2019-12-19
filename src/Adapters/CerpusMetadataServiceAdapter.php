@@ -18,31 +18,39 @@ use function GuzzleHttp\json_decode as guzzle_json_decode;
  */
 class CerpusMetadataServiceAdapter implements MetadataServiceContract
 {
-    /** @var Client */
+    /**
+     * @var Client
+     */
     private $client;
+
     /**
      * @var string|null
      */
-    private $entityType;
+    protected $entityType;
+
     /**
      * @var string|null
      */
-    private $entityId;
+    protected $entityId;
+
     /**
      * @var string
      */
-    private $entityGuid = '';
+    protected $entityGuid = '';
+
     /**
      * @var string
      */
-    private $prefix = '';
+    protected $prefix = '';
+
     /**
      * @var bool
      */
     private $metadataId = false;
 
-    // metaType => propertyName
     /**
+     * metaType => propertyName
+     *
      * @var array
      */
     private $propertyMapping = [
@@ -90,11 +98,16 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         $this->updateEntityGuid();
     }
 
-    protected function updateEntityGuid()
+    protected function buildGuid()
+    {
+        return $this->prefix . $this->entityId;
+    }
+
+    private function updateEntityGuid()
     {
         $newId = $this->entityId;
         if (Uuid::isValid($newId) === false) {
-            $newId = $this->prefix . $this->entityId;
+            $newId = $this->buildGuid();
         }
         if ($this->entityGuid !== $newId) {
             $this->entityGuid = $newId;
