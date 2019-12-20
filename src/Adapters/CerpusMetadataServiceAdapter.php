@@ -470,7 +470,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         }
     }
 
-    public function getCustomFieldDefinition(string $fieldName): string
+    public function getCustomFieldDefinition(string $fieldName): ?string
     {
         if (array_key_exists($fieldName, $this->customFieldDefinitions)) {
             return $this->customFieldDefinitions[$fieldName];
@@ -509,7 +509,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         }
     }
 
-    public function getCustomFieldValues(string $fieldName): array
+    public function getCustomFieldValues(string $fieldName): ?array
     {
         $response = $this->client->get(sprintf(self::CUSTOM_FIELDS_URL, rawurlencode($this->entityGuid)), [
             'query' => [
@@ -520,7 +520,8 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         $result = json_decode($response->getBody()->getContents(), true);
 
         if (!is_array($result)) {
-            throw new \Exception('Data format error');
+            Log::error(sprintf('[%s] %s', __METHOD__, 'Data format error'));
+            return null;
         }
 
         return array_column($result, 'value');
