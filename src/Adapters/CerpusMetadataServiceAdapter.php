@@ -470,7 +470,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         }
     }
 
-    public function getCustomFieldDefinition(string $fieldName): ?string
+    public function getCustomFieldDefinition(string $fieldName)
     {
         if (array_key_exists($fieldName, $this->customFieldDefinitions)) {
             return $this->customFieldDefinitions[$fieldName];
