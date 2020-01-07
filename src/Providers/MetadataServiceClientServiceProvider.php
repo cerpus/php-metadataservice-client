@@ -3,14 +3,14 @@
 namespace Cerpus\MetadataServiceClient\Providers;
 
 
-use Cerpus\MetadataServiceClient\Clients\Client;
-use Cerpus\MetadataServiceClient\Clients\Oauth1Client;
-use Cerpus\MetadataServiceClient\Clients\Oauth2Client;
+use Cerpus\Helper\Clients\Client;
+use Cerpus\Helper\Clients\Oauth1Client;
+use Cerpus\Helper\Clients\Oauth2Client;
+use Cerpus\Helper\DataObjects\OauthSetup;
 use Cerpus\MetadataServiceClient\Contracts\MetadataServiceClientContract;
 use Cerpus\MetadataServiceClient\Contracts\MetadataServiceContract;
 use Cerpus\MetadataServiceClient\Exceptions\InvalidConfigException;
 use Cerpus\MetadataServiceClient\MetadataServiceClient;
-use Cerpus\MetadataServiceClient\DataObjects\OauthSetup;
 use Illuminate\Support\ServiceProvider;
 
 class MetadataServiceClientServiceProvider extends ServiceProvider
@@ -52,12 +52,12 @@ class MetadataServiceClientServiceProvider extends ServiceProvider
             }
 
             return $clientClass::getClient(OauthSetup::create([
-                'baseUrl' => $adapterConfig['base-url'],
+                'coreUrl' => $adapterConfig['base-url'],
                 'authUrl' => $adapterConfig['auth-url'],
-                'authUser' => $adapterConfig['auth-user'],
-                'authSecret' => $adapterConfig['auth-secret'],
-                'authToken' => $adapterConfig['auth-token'],
-                'authTokenSecret' => $adapterConfig['auth-token_secret'],
+                'key' => $adapterConfig['auth-user'],
+                'secret' => $adapterConfig['auth-secret'],
+                'token' => $adapterConfig['auth-token'],
+                'tokenSecret' => $adapterConfig['auth-token_secret'],
             ]));
         });
 

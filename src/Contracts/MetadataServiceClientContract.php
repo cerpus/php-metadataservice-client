@@ -2,18 +2,12 @@
 
 namespace Cerpus\MetadataServiceClient\Contracts;
 
-use Cerpus\MetadataServiceClient\DataObjects\OauthSetup;
-use GuzzleHttp\ClientInterface;
+use Cerpus\Helper\Contracts\HelperClientContract;
 
 /**
  * Interface MetadataServiceClientContract
  * @package Cerpus\CoreClient\Contracts
  */
-interface MetadataServiceClientContract
+interface MetadataServiceClientContract extends HelperClientContract
 {
-    /**
-     * @param OauthSetup $config
-     * @return ClientInterface
-     */
-    public static function getClient(OauthSetup $config): ClientInterface;
 }
