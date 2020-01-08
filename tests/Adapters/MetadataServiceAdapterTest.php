@@ -10,6 +10,10 @@ namespace {
         public static function debug($message)
         {
         }
+
+        public static function warning($message)
+        {
+        }
     }
 }
 
