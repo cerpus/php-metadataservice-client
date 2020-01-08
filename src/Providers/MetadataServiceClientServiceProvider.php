@@ -104,6 +104,11 @@ class MetadataServiceClientServiceProvider extends ServiceProvider
         ];
     }
 
+    /**
+     * @param $config
+     * @param $adapter
+     * @throws InvalidConfigException
+     */
     private function checkConfig($config, $adapter)
     {
         if (!array_key_exists($adapter, $config['adapters']) || !is_array($config['adapters'][$adapter])) {

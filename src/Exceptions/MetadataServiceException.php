@@ -4,6 +4,6 @@ namespace Cerpus\MetadataServiceClient\Exceptions;
 
 use Exception;
 
-class MetadataServiceException Extends \Exception
+class MetadataServiceException Extends Exception
 {
 }
