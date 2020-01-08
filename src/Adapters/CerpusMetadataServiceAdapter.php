@@ -4,12 +4,15 @@ namespace Cerpus\MetadataServiceClient\Adapters;
 
 use Cerpus\MetadataServiceClient\Contracts\MetadataServiceContract;
 use Cerpus\MetadataServiceClient\Exceptions\MetadataServiceException;
+use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Promise;
 use GuzzleHttp\Psr7\Response;
+use Illuminate\Support\Collection;
 use Log;
 use Ramsey\Uuid\Uuid;
+use Throwable;
 use function GuzzleHttp\json_decode as guzzle_json_decode;
 
 /**
@@ -80,6 +83,8 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
     private const LEARNING_OBJECTS_URL = '/v2/learning_objects/%s';
     private const CUSTOM_FIELDS_URL = '/v2/learning_objects/%s/field_values';
     private const CUSTOM_FIELD_VALUE_URL = '/v2/learning_objects/%s/field_values/%s';
+    private const FIELD_DEFINITION_URL = '/v2/field_definitions';
+    private const FIELD_DEFINITION_FIELDNAME_URL = '/v2/field_definitions/%s';
 
     /**
      * CerpusMetadataServiceAdapter constructor.
@@ -161,7 +166,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
 
                 return null;
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             if ($e->getCode() === 404) {
                 return null;
             }
@@ -199,7 +204,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
                     }
                 }
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('[' . __METHOD__ . '] ' . $e->getMessage() . ' (' . $e->getCode() . ')');
             throw new MetadataServiceException('Service error', 1005, $e);
         }
@@ -249,7 +254,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
 
                 return false;
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             throw new MetadataServiceException('Failed setting metadata of type ' . $metaType, 1002, $e);
         }
 
@@ -280,7 +285,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
                     }
                 }
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             throw new MetadataServiceException(
                 'Failed creating data from array',
                 1009,
@@ -306,7 +311,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
 
                 return ($result->getStatusCode() === 200);
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             throw new MetadataServiceException(
                 'Failed deleting metadata. Type: ' . $metaType . ', Id: ' . $metaId,
                 1006,
@@ -348,7 +353,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
 
                 return false;
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             throw new MetadataServiceException(
                 'Failed updating metadata. Type: "' . $metaType . '", Id: "' . $metaId . '"',
                 1007,
@@ -389,7 +394,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
 
                 return $this->metadataId;
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             if ($e->getCode() !== 404) {
                 Log::error('[' . __METHOD__ . '] ' . $e->getMessage() . ' (' . $e->getCode() . ')');
             } else if ($create) {
@@ -423,7 +428,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
 
                 return $this->metadataId;
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error($e->getMessage());
         }
 
@@ -454,6 +459,11 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         return array_column($this->getData(self::METATYPE_KEYWORDS), 'keyword');
     }
 
+    /**
+     * @param string $searchText
+     * @return mixed
+     * @throws MetadataServiceException
+     */
     public function searchForKeywords(string $searchText)
     {
         try {
@@ -477,15 +487,15 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         }
 
         try {
-            $response = $this->client->get('/v2/field_definitions/' . rawurlencode($fieldName));
+            $response = $this->client->get(sprintf(self::FIELD_DEFINITION_FIELDNAME_URL, rawurlencode($fieldName)));
             $result = json_decode($response->getBody()->getContents(), false);
             if (json_last_error() !== JSON_ERROR_NONE) {
-                throw new \Exception("Unable to decode field definition");
+                throw new Exception("Unable to decode field definition");
             }
             $this->customFieldDefinitions[$fieldName] = $result;
 
             return $this->customFieldDefinitions[$fieldName];
-        } catch (\Throwable $t) {
+        } catch (Throwable $t) {
             Log::error(__METHOD__ . ': ' . $t->getMessage());
         }
         return null;
@@ -494,7 +504,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
     public function addCustomFieldDefinition(string $fieldName, string $dataType, bool $isCollection = false, bool $requiresUniqueValues = false)
     {
         try {
-            $response = $this->client->post('/v2/field_definitions', [
+            $response = $this->client->post(self::FIELD_DEFINITION_URL, [
                 'json' => [
                     'name' => $fieldName,
                     'dataType' => $dataType,
@@ -503,7 +513,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
                 ]
             ]);
             return json_decode($response->getBody()->getContents(), false);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error($e->getMessage());
             return null;
         }
@@ -527,6 +537,13 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         return array_column($result, 'value');
     }
 
+    /**
+     * @param string $fieldName
+     * @param $value
+     * @param bool $deduplicateFieldValues
+     * @return Collection|mixed|void|null
+     * @throws MetadataServiceException
+     */
     public function setCustomFieldValue(string $fieldName, $value, bool $deduplicateFieldValues = false)
     {
         if (!$fieldDefinition = $this->getCustomFieldDefinition($fieldName)) {
@@ -547,12 +564,19 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
             $response = $this->client->put($url, ['json' => ['value' => $value]]);
 
             return json_decode($response->getBody()->getContents(), false);
-        } catch (\Throwable $t) {
+        } catch (Throwable $t) {
             Log::error(__METHOD__ . ': (' . $t->getCode() . ') ' . $t->getMessage());
             return null;
         }
     }
 
+    /**
+     * @param string $fieldName
+     * @param $value
+     * @param bool $deduplicateFieldValues
+     * @return Collection|mixed|void|null
+     * @throws MetadataServiceException
+     */
     public function setCustomFieldValues(string $fieldName, $value, bool $deduplicateFieldValues = false)
     {
         $fieldDefinition = $this->getCustomFieldDefinition($fieldName);
@@ -574,7 +598,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
             return;
         }
 
-        if (\is_string($values)) {
+        if (is_string($values)) {
             $values = [$values];
         }
 
@@ -597,7 +621,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
                     return $this->addCustomFieldCollectionValue($fieldName, $v);
                 });
 
-        } catch (\Throwable $t) {
+        } catch (Throwable $t) {
             Log::error(__METHOD__ . ': (' . $t->getCode() . ')' . $t->getMessage());
             return null;
         }
@@ -637,6 +661,11 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         return $fields;
     }
 
+    /**
+     * @param bool $create
+     * @return mixed|null
+     * @throws MetadataServiceException
+     */
     public function getLearningObject(bool $create = false)
     {
         $learningObject = null;

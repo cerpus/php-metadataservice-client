@@ -2,12 +2,11 @@
   "name": "cerpus/metadataservice-client",
   "description": "Client to handle communication with the Cerpus MetadataService",
   "require": {
-    "guzzlehttp/guzzle": "^6.2",
-    "kamermans/guzzle-oauth2-subscriber": "^1.0",
-    "guzzlehttp/oauth-subscriber": "^0.3.0",
     "illuminate/support": "^6.0",
     "nesbot/carbon": "^2.0",
-    "ramsey/uuid": "^3.8"
+    "ramsey/uuid": "^3.8",
+    "cerpus/cerpushelper": "^1.1",
+    "ext-json": "^1.6"
   },
   "require-dev": {
     "phpunit/phpunit": "^6.4",
@@ -30,5 +29,16 @@
     "psr-4": {
       "Cerpus\\MetadataServiceClientTests\\": "tests"
     }
-  }
+  },
+  "repositories": [
+    {
+      "type": "composer",
+      "url": "https://composer.cerpus.net/"
+    },
+    {
+      "type": "composer",
+      "url": "https://composer-3rdparty.cerpus.net/"
+    }
+  ]
+
 }
