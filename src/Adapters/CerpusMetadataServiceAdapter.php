@@ -188,9 +188,10 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         try {
             $id = $this->getUuid(false);
             if ($id !== false) {
-                $metaDataPromises = array_map(function ($key) use ($id) {
-                    return $this->client->getAsync(sprintf(self::LEARNINGOBJECT_URL, $id, $key));
-                }, $this->propertyMapping);
+                $metaDataPromises = [];
+                foreach ($this->propertyMapping as $key => $value) {
+                    $metaDataPromises[$key] = $this->client->getAsync(sprintf(self::LEARNINGOBJECT_URL, $id, $key));
+                }
                 $metaResponse = Promise\settle($metaDataPromises)->wait();
 
                 foreach ($this->propertyMapping as $key => $response) {
@@ -200,7 +201,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
                         $theContent = json_decode($theResponse->getBody()->getContents());
                         $metaResults[$key] = $theContent;
                     } else {
-                        Log::debug("Response from metadata api is missing [$key]['value']");
+                        Log::warning("Response from metadata api is missing [$key]['value']");
                     }
                 }
             }
