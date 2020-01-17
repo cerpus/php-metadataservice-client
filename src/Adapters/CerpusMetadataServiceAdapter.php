@@ -434,6 +434,10 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
 
                 $this->customFieldDefinitions[$fieldName] = $result;
             } catch (GuzzleException $e) {
+                if ($e->getCode() === 404) {
+                    return null;
+                }
+
                 throw MetadataServiceException::fromGuzzleException($e);
             }
         }
