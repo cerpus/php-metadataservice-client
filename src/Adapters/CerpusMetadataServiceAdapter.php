@@ -229,7 +229,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
                 ]
             ]);
 
-            $result = guzzle_json_decode($response->getBody()->getContents());
+            $result = guzzle_json_decode($response->getBody()->getContents(), false);
 
             if ($result === null) {
                 throw new MalformedJsonException('result was null');
@@ -303,7 +303,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
                 ]
             ]);
 
-            $result = guzzle_json_decode($response->getBody()->getContents());
+            $result = guzzle_json_decode($response->getBody()->getContents(), false);
 
             if (empty($result)) {
                 throw new MalformedJsonException('result was empty');
@@ -590,7 +590,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
             $url = sprintf(self::CUSTOM_FIELDS_URL, rawurlencode($this->entityGuid));
             $response = $this->client->get($url);
 
-            return guzzle_json_decode($response->getBody()->getContents());
+            return guzzle_json_decode($response->getBody()->getContents(), false);
         } catch (GuzzleException $e) {
             if ($e->getCode() === 404) {
                 return [];
