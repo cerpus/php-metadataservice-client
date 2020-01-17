@@ -269,6 +269,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
     /**
      * @param string $metaType one of METATYPE_* constants
      * @param string $metaId
+     * @return bool if data was deleted
      * @throws MetadataServiceException if data could not be deleted
      */
     public function deleteData($metaType, $metaId)
@@ -276,7 +277,13 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         try {
             $id = $this->getUuid(false);
             $this->client->delete(sprintf(self::LEARNINGOBJECT_EDIT_URL, $id, $metaType, $metaId));
+
+            return true;
         } catch (GuzzleException $e) {
+            if ($e->getCode() === 404) {
+                return false;
+            }
+
             throw MetadataServiceException::fromGuzzleException($e);
         }
     }

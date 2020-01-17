@@ -489,17 +489,14 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
             ]);
 
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
-            $metadataservice->deleteData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, $this->faker->uuid);
+            $this->assertTrue($metadataservice->deleteData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, $this->faker->uuid));
         }
 
         /**
          * @test
          */
-        public function deleteData_notFound_thenFail()
+        public function deleteData_notFound_thenReturnFalse()
         {
-            $this->expectException(HttpException::class);
-            $this->expectExceptionCode(StatusCode::NOT_FOUND);
-
             $entityUuid = $this->faker->uuid;
             $client = $this->getClient([
                 new Response(StatusCode::OK, [], json_encode((object)[
@@ -509,7 +506,7 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
             ]);
 
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
-            $metadataservice->deleteData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, 'uuidTest');
+            $this->assertFalse($metadataservice->deleteData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, 'uuidTest'));
         }
 
         /**
