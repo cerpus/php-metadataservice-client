@@ -157,6 +157,7 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
         public function getData_unexpectedReturnCode_thenFail()
         {
             $this->expectException(HttpException::class);
+            $this->expectExceptionCode(StatusCode::FORBIDDEN);
 
             $client = $this->getClient([
                 new Response(StatusCode::OK, [], json_encode((object)['id' => $this->faker->uuid])),
@@ -206,6 +207,7 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
         public function getAllMetadata_noUuid_thenFail()
         {
             $this->expectException(HttpException::class);
+            $this->expectExceptionCode(StatusCode::NOT_FOUND);
 
             $client = $this->getClient([
                 new Response(StatusCode::NOT_FOUND),
