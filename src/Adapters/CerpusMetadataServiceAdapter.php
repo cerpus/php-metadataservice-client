@@ -3,16 +3,16 @@
 namespace Cerpus\MetadataServiceClient\Adapters;
 
 use Cerpus\MetadataServiceClient\Contracts\MetadataServiceContract;
+use Cerpus\MetadataServiceClient\Exceptions\MalformedJsonException;
 use Cerpus\MetadataServiceClient\Exceptions\MetadataServiceException;
-use Exception;
 use GuzzleHttp\Client;
-use GuzzleHttp\Exception\ClientException;
+use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Promise;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Support\Collection;
+use InvalidArgumentException;
 use Log;
 use Ramsey\Uuid\Uuid;
-use Throwable;
 use function GuzzleHttp\json_decode as guzzle_json_decode;
 
 /**
@@ -47,9 +47,9 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
     protected $prefix = '';
 
     /**
-     * @var bool
+     * @var string|null
      */
-    private $metadataId = false;
+    private $metadataId;
 
     /**
      * metaType => propertyName
@@ -116,7 +116,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         }
         if ($this->entityGuid !== $newId) {
             $this->entityGuid = $newId;
-            $this->metadataId = false;
+            $this->metadataId = null;
         }
     }
 
@@ -155,26 +155,16 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
     {
         try {
             $id = $this->getUuid(false);
-            if ($id !== false) {
-                $request = sprintf(self::LEARNINGOBJECT_URL, $id, $metaType);
-                $response = $this->client->get($request);
-                $result = json_decode($response->getBody()->getContents());
+            $response = $this->client->get(sprintf(self::LEARNINGOBJECT_URL, $id, $metaType));
 
-                if ($response->getStatusCode() === 200 && $result !== null) {
-                    return $result;
-                }
-
-                return null;
-            }
-        } catch (Exception $e) {
+            return guzzle_json_decode($response->getBody()->getContents(), false);
+        } catch (GuzzleException $e) {
             if ($e->getCode() === 404) {
                 return null;
             }
-            Log::error('[' . __METHOD__ . '] ' . $e->getMessage() . ' (' . $e->getCode() . ')');
-            throw new MetadataServiceException('Service error', 1005, $e);
-        }
 
-        throw new MetadataServiceException('LearningObject not found', 1001);
+            throw MetadataServiceException::fromGuzzleException($e);
+        }
     }
 
     /**
@@ -183,43 +173,38 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
      */
     public function getAllMetaData()
     {
-        $start = microtime(true);
-        $metaResults = [];
+        $metaResults = $metaDataPromises = [];
+
         try {
             $id = $this->getUuid(false);
-            if ($id !== false) {
-                $metaDataPromises = [];
-                foreach ($this->propertyMapping as $key => $value) {
-                    $metaDataPromises[$key] = $this->client->getAsync(sprintf(self::LEARNINGOBJECT_URL, $id, $key));
-                }
-                $metaResponse = Promise\settle($metaDataPromises)->wait();
+            foreach ($this->propertyMapping as $key => $value) {
+                $metaDataPromises[$key] = $this->client->getAsync(sprintf(self::LEARNINGOBJECT_URL, $id, $key));
+            }
 
-                foreach ($this->propertyMapping as $key => $response) {
+            $metaResponse = Promise\settle($metaDataPromises)->wait();
+
+            foreach ($this->propertyMapping as $key => $response) {
+                if (isset($metaResponse[$key]['value'])) {
                     /** @var Response $theResponse */
-                    if (array_key_exists($key, $metaResponse) && array_key_exists('value', $metaResponse[$key])) {
-                        $theResponse = $metaResponse[$key]['value'];
-                        $theContent = json_decode($theResponse->getBody()->getContents());
-                        $metaResults[$key] = $theContent;
-                    } else {
-                        Log::warning("Response from metadata api is missing [$key]['value']");
-                    }
+                    $theResponse = $metaResponse[$key]['value'];
+                    $theContent = guzzle_json_decode($theResponse->getBody()->getContents(), false);
+                    $metaResults[$key] = $theContent;
+                } else {
+                    Log::warning("Response from metadata api is missing [$key]['value']");
                 }
             }
-        } catch (Exception $e) {
-            Log::error('[' . __METHOD__ . '] ' . $e->getMessage() . ' (' . $e->getCode() . ')');
-            throw new MetadataServiceException('Service error', 1005, $e);
+
+            return $metaResults;
+        } catch (GuzzleException $e) {
+            throw MetadataServiceException::fromGuzzleException($e);
         }
-
-        Log::debug(__METHOD__ . ' time: ' . (microtime(true) - $start));
-
-        return $metaResults;
     }
 
     /**
      * Save new metadata
      *
      * @param string $metaType Type of metadata to save, one of METATYPE_* constants
-     * @param string $data The data to store
+     * @param string|mixed $data The data to store
      * @return mixed
      * @throws MetadataServiceException
      */
@@ -227,39 +212,33 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
     {
         try {
             $id = $this->getUuid(true);
-            if ($id !== false) {
-                $propertyName = $this->getPropertyName($metaType);
-                if ($propertyName === null) {
-                    throw new MetadataServiceException('Unknown metaType ' . $metaType, 1004);
-                }
-                $url = sprintf(self::LEARNINGOBJECT_URL, $id, $metaType);
-                if ($metaType !== self::METATYPE_ESTIMATED_DURATION &&
-                    $metaType !== self::METATYPE_DIFFICULTY &&
-                    $metaType !== self::METATYPE_PUBLIC_STATUS
-                ) {
-                    $url = sprintf(self::LEARNINGOBJECT_LIMITED_CREATE_URL, $id, $metaType);
-                }
-                $response = $this->client->post(
-                    $url,
-                    [
-                        'json' => [
-                            $propertyName => $data
-                        ]
-                    ]
-                );
-
-                $result = json_decode($response->getBody()->getContents());
-                if ($response->getStatusCode() === 200 && $result !== null) {
-                    return $result;
-                }
-
-                return false;
+            $propertyName = $this->getPropertyName($metaType);
+            if ($propertyName === null) {
+                throw new InvalidArgumentException('Unknown metaType ' . $metaType);
             }
-        } catch (Exception $e) {
-            throw new MetadataServiceException('Failed setting metadata of type ' . $metaType, 1002, $e);
-        }
+            $url = sprintf(self::LEARNINGOBJECT_URL, $id, $metaType);
+            if ($metaType !== self::METATYPE_ESTIMATED_DURATION &&
+                $metaType !== self::METATYPE_DIFFICULTY &&
+                $metaType !== self::METATYPE_PUBLIC_STATUS
+            ) {
+                $url = sprintf(self::LEARNINGOBJECT_LIMITED_CREATE_URL, $id, $metaType);
+            }
+            $response = $this->client->post($url, [
+                'json' => [
+                    $propertyName => $data
+                ]
+            ]);
 
-        throw new MetadataServiceException('Failed creating LearningObject', 1003);
+            $result = guzzle_json_decode($response->getBody()->getContents());
+
+            if ($result === null) {
+                throw new MalformedJsonException('result was null');
+            }
+
+            return $result;
+        } catch (GuzzleException $e) {
+            throw MetadataServiceException::fromGuzzleException($e);
+        }
     }
 
     /**
@@ -267,31 +246,21 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
      * @return array
      * @throws MetadataServiceException
      */
-    public function createDataFromArray(array $dataArray)
+    public function createDataFromArray(array $dataArray): array
     {
         $result = [];
-        try {
-            $id = $this->getUuid(true);
-            if ($id !== false) {
-                foreach ($dataArray as $metaType => $data) {
-                    $propName = $this->getPropertyName($metaType);
-                    if (is_array($data) && count($data) > 0) {
-                        foreach ($data as $d) {
-                            if (is_object($d) && property_exists($d, $propName)) {
-                                $result[$metaType][] = $this->createData($metaType, $d->$propName);
-                            }
-                        }
-                    } else if (is_object($data) && property_exists($data, $propName)) {
-                        $result[$metaType] = $this->createData($metaType, $data->$propName);
+        $this->getUuid(true);
+        foreach ($dataArray as $metaType => $data) {
+            $propName = $this->getPropertyName($metaType);
+            if (is_array($data) && count($data) > 0) {
+                foreach ($data as $d) {
+                    if (is_object($d) && property_exists($d, $propName)) {
+                        $result[$metaType][] = $this->createData($metaType, $d->$propName);
                     }
                 }
+            } elseif (is_object($data) && property_exists($data, $propName)) {
+                $result[$metaType] = $this->createData($metaType, $data->$propName);
             }
-        } catch (Exception $e) {
-            throw new MetadataServiceException(
-                'Failed creating data from array',
-                1009,
-                $e
-            );
         }
 
         return $result;
@@ -300,69 +269,50 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
     /**
      * @param string $metaType one of METATYPE_* constants
      * @param string $metaId
-     * @return bool
-     * @throws MetadataServiceException
+     * @throws MetadataServiceException if data could not be deleted
      */
     public function deleteData($metaType, $metaId)
     {
         try {
             $id = $this->getUuid(false);
-            if ($id !== false) {
-                $result = $this->client->delete(sprintf(self::LEARNINGOBJECT_EDIT_URL, $id, $metaType, $metaId));
-
-                return ($result->getStatusCode() === 200);
-            }
-        } catch (Exception $e) {
-            throw new MetadataServiceException(
-                'Failed deleting metadata. Type: ' . $metaType . ', Id: ' . $metaId,
-                1006,
-                $e
-            );
+            $this->client->delete(sprintf(self::LEARNINGOBJECT_EDIT_URL, $id, $metaType, $metaId));
+        } catch (GuzzleException $e) {
+            throw MetadataServiceException::fromGuzzleException($e);
         }
-
-        return false;
     }
 
     /**
      * @param string $metaType
      * @param string $metaId
      * @param mixed $data
-     * @return bool|mixed
-     * @throws MetadataServiceException
+     * @return mixed
+     * @throws InvalidArgumentException if $metaType is invalid
+     * @throws MetadataServiceException if data could not be updated
      */
     public function updateData($metaType, $metaId, $data)
     {
         try {
             $id = $this->getUuid(false);
-            if ($id !== false) {
-                $propertyName = $this->getPropertyName($metaType);
-                if ($propertyName === null) {
-                    throw new MetadataServiceException('Unknown metaType ' . $metaType, 1008);
-                }
-                $response = $this->client->put(
-                    sprintf(self::LEARNINGOBJECT_EDIT_URL, $id, $metaType, $metaId),
-                    array(
-                        'json' => [
-                            $propertyName => $data
-                        ]
-                    )
-                );
-                $result = json_decode($response->getBody()->getContents());
-                if ($response->getStatusCode() === 200 && $result !== null) {
-                    return $result;
-                }
-
-                return false;
+            $propertyName = $this->getPropertyName($metaType);
+            if ($propertyName === null) {
+                throw new InvalidArgumentException("Unknown metaType '$metaType'");
             }
-        } catch (Exception $e) {
-            throw new MetadataServiceException(
-                'Failed updating metadata. Type: "' . $metaType . '", Id: "' . $metaId . '"',
-                1007,
-                $e
-            );
-        }
+            $response = $this->client->put(sprintf(self::LEARNINGOBJECT_EDIT_URL, $id, $metaType, $metaId), [
+                'json' => [
+                    $propertyName => $data
+                ]
+            ]);
 
-        return false;
+            $result = guzzle_json_decode($response->getBody()->getContents());
+
+            if (empty($result)) {
+                throw new MalformedJsonException('result was empty');
+            }
+
+            return $result;
+        } catch (GuzzleException $e) {
+            throw MetadataServiceException::fromGuzzleException($e);
+        }
     }
 
     /**
@@ -379,61 +329,58 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
      * Get the UUID for the entity from the Metadata service
      *
      * @param bool $create If the entity does not have an UUID assigned, create it
-     * @return bool|string False on failure, UUID on success
+     * @return string
+     * @throws MetadataServiceException if the UUID could not be retrieved or created
      */
     public function getUuid($create = false)
     {
-        if ($this->metadataId !== false) {
-            return $this->metadataId;
-        }
+        if (!$this->metadataId) {
+            try {
+                $response = $this->client->get(sprintf(self::ENTITY_GUID_URL, $this->entityGuid));
+                $result = guzzle_json_decode($response->getBody()->getContents(), false);
 
-        try {
-            $response = $this->client->get(sprintf(self::ENTITY_GUID_URL, $this->entityGuid));
-            $result = json_decode($response->getBody()->getContents());
-            if ($result !== null && property_exists($result, 'id')) {
+                if (!is_string($result->id ?? null)) {
+                    throw new MalformedJsonException("missing 'id' field");
+                }
+
                 $this->metadataId = $result->id;
-
-                return $this->metadataId;
-            }
-        } catch (Exception $e) {
-            if ($e->getCode() !== 404) {
-                Log::error('[' . __METHOD__ . '] ' . $e->getMessage() . ' (' . $e->getCode() . ')');
-            } else if ($create) {
-                return $this->createId();
+            } catch (GuzzleException $e) {
+                if ($create && $e->getCode() === 404) {
+                    $this->metadataId = $this->createId();
+                } else {
+                    throw MetadataServiceException::fromGuzzleException($e);
+                }
             }
         }
 
-        return false;
+        return $this->metadataId;
     }
 
     /**
      * Request Metadata service to create an UUID for this entity
      *
-     * @return bool|string False on failure, UUID on create
+     * @throws MetadataServiceException if UUID could not be created
      */
-    private function createId()
+    private function createId(): string
     {
         try {
-            $response = $this->client->post(
-                self::CREATE_LEARNINGOBJECT_URL,
-                array(
-                    'json' => [
-                        'entityType' => $this->entityType,
-                        'entityGuid' => $this->entityGuid,
-                    ]
-                )
-            );
-            $result = json_decode($response->getBody()->getContents());
-            if ($result !== null && property_exists($result, 'id')) {
-                $this->metadataId = $result->id;
+            $response = $this->client->post(self::CREATE_LEARNINGOBJECT_URL, [
+                'json' => [
+                    'entityType' => $this->entityType,
+                    'entityGuid' => $this->entityGuid,
+                ]
+            ]);
 
-                return $this->metadataId;
+            $result = guzzle_json_decode($response->getBody()->getContents(), false);
+
+            if (!is_string($result->id ?? null)) {
+                throw new MalformedJsonException("'id' is missing or not a string");
             }
-        } catch (Exception $e) {
-            Log::error($e->getMessage());
-        }
 
-        return false;
+            return $result->id;
+        } catch (GuzzleException $e) {
+            throw MetadataServiceException::fromGuzzleException($e);
+        }
     }
 
     /**
@@ -444,11 +391,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
      */
     private function getPropertyName($metaType): ?string
     {
-        if (array_key_exists($metaType, $this->propertyMapping)) {
-            return $this->propertyMapping[$metaType];
-        }
-
-        return null;
+        return $this->propertyMapping[$metaType] ?? null;
     }
 
     /**
@@ -457,7 +400,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
      */
     public function getKeywords(): array
     {
-        return array_column($this->getData(self::METATYPE_KEYWORDS), 'keyword');
+        return array_column($this->getData(self::METATYPE_KEYWORDS) ?: [], 'keyword');
     }
 
     /**
@@ -475,31 +418,27 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
             ]);
 
             $result = $response->getBody()->getContents();
-            return json_decode($result);
-        } catch (ClientException $exception) {
-            throw new MetadataServiceException('Could not load keywords', 1010, $exception);
+
+            return guzzle_json_decode($result, false);
+        } catch (GuzzleException $e) {
+            throw MetadataServiceException::fromGuzzleException($e);
         }
     }
 
     public function getCustomFieldDefinition(string $fieldName)
     {
-        if (array_key_exists($fieldName, $this->customFieldDefinitions)) {
-            return $this->customFieldDefinitions[$fieldName];
-        }
+        if (!isset($this->customFieldDefinitions[$fieldName])) {
+            try {
+                $response = $this->client->get(sprintf(self::FIELD_DEFINITION_FIELDNAME_URL, rawurlencode($fieldName)));
+                $result = guzzle_json_decode($response->getBody()->getContents(), false);
 
-        try {
-            $response = $this->client->get(sprintf(self::FIELD_DEFINITION_FIELDNAME_URL, rawurlencode($fieldName)));
-            $result = json_decode($response->getBody()->getContents(), false);
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                throw new Exception("Unable to decode field definition");
+                $this->customFieldDefinitions[$fieldName] = $result;
+            } catch (GuzzleException $e) {
+                throw MetadataServiceException::fromGuzzleException($e);
             }
-            $this->customFieldDefinitions[$fieldName] = $result;
-
-            return $this->customFieldDefinitions[$fieldName];
-        } catch (Throwable $t) {
-            Log::error(__METHOD__ . ': ' . $t->getMessage());
         }
-        return null;
+
+        return $this->customFieldDefinitions[$fieldName];
     }
 
     public function addCustomFieldDefinition(string $fieldName, string $dataType, bool $isCollection = false, bool $requiresUniqueValues = false)
@@ -513,29 +452,32 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
                     'requiresUniqueValues' => $requiresUniqueValues
                 ]
             ]);
-            return json_decode($response->getBody()->getContents(), false);
-        } catch (Exception $e) {
-            Log::error($e->getMessage());
-            return null;
+
+            return guzzle_json_decode($response->getBody()->getContents(), false);
+        } catch (GuzzleException $e) {
+            throw MetadataServiceException::fromGuzzleException($e);
         }
     }
 
     public function getCustomFieldValues(string $fieldName): ?array
     {
-        $response = $this->client->get(sprintf(self::CUSTOM_FIELDS_URL, rawurlencode($this->entityGuid)), [
-            'query' => [
-                'fieldName' => $fieldName,
-            ],
-        ]);
+        try {
+            $response = $this->client->get(sprintf(self::CUSTOM_FIELDS_URL, rawurlencode($this->entityGuid)), [
+                'query' => [
+                    'fieldName' => $fieldName,
+                ],
+            ]);
 
-        $result = json_decode($response->getBody()->getContents(), true);
+            $result = guzzle_json_decode($response->getBody()->getContents(), true);
 
-        if (!is_array($result)) {
-            Log::error(sprintf('[%s] %s', __METHOD__, 'Data format error'));
-            return null;
+            if (!is_array($result)) {
+                throw new MalformedJsonException('result was expected to be an array');
+            }
+
+            return array_column($result, 'value');
+        } catch (GuzzleException $e) {
+            throw MetadataServiceException::fromGuzzleException($e);
         }
-
-        return array_column($result, 'value');
     }
 
     /**
@@ -548,7 +490,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
     public function setCustomFieldValue(string $fieldName, $value, bool $deduplicateFieldValues = false)
     {
         if (!$fieldDefinition = $this->getCustomFieldDefinition($fieldName)) {
-            throw new MetadataServiceException("Field '$fieldName' is not defined in the Metadata service. Please define it using the 'addCustomFieldDefinition' method before attempting to set a value.");
+            throw new InvalidArgumentException("Field '$fieldName' is not defined in the Metadata service. Please define it using the 'addCustomFieldDefinition' method before attempting to set a value.");
         }
 
         if ($fieldDefinition->isCollection) {
@@ -558,16 +500,15 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         }
     }
 
-    protected function setCustomFieldPlainValue(string $fieldName, $value)
+    private function setCustomFieldPlainValue(string $fieldName, $value)
     {
         try {
             $url = sprintf(self::CUSTOM_FIELD_VALUE_URL, rawurlencode($this->entityGuid), rawurlencode($fieldName));
             $response = $this->client->put($url, ['json' => ['value' => $value]]);
 
-            return json_decode($response->getBody()->getContents(), false);
-        } catch (Throwable $t) {
-            Log::error(__METHOD__ . ': (' . $t->getCode() . ') ' . $t->getMessage());
-            return null;
+            return guzzle_json_decode($response->getBody()->getContents(), false);
+        } catch (GuzzleException $e) {
+            throw MetadataServiceException::fromGuzzleException($e);
         }
     }
 
@@ -576,6 +517,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
      * @param $value
      * @param bool $deduplicateFieldValues
      * @return Collection|mixed|void|null
+     * @throws InvalidArgumentException if $fieldName is invalid
      * @throws MetadataServiceException
      */
     public function setCustomFieldValues(string $fieldName, $value, bool $deduplicateFieldValues = false)
@@ -583,7 +525,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
         $fieldDefinition = $this->getCustomFieldDefinition($fieldName);
 
         if (!$fieldDefinition) {
-            throw new MetadataServiceException("Field '$fieldName' is not defined in the Metadata service. Please define it using the 'addCustomFieldDefinition' method before attempting to set a value.");
+            throw new InvalidArgumentException("Field '$fieldName' is not defined in the Metadata service. Please define it using the 'addCustomFieldDefinition' method before attempting to set a value.");
         }
 
         if ($fieldDefinition->isCollection) {
@@ -595,6 +537,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
 
     public function addCustomFieldCollectionValues(string $fieldName, $values = null, bool $deduplicateFieldValues = false)
     {
+        // TODO: this method doesn't work, fix it or remove it
         if (!$fieldName || $values === null) {
             return;
         }
@@ -643,55 +586,43 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
      */
     public function fetchAllCustomFields(): array
     {
-        $fields = [];
-
         try {
             $url = sprintf(self::CUSTOM_FIELDS_URL, rawurlencode($this->entityGuid));
             $response = $this->client->get($url);
-            $fields = json_decode($response->getBody()->getContents());
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                throw new MetadataServiceException('Error decoding response when getting all custom field values.');
-            }
-        } catch (ClientException $e) {
-            // Learning object not found is OK. Everything else is not OK.
-            if ($e->getCode() !== 404) {
-                throw new MetadataServiceException('HTTP error', $e->getCode(), $e);
-            }
-        }
 
-        return $fields;
+            return guzzle_json_decode($response->getBody()->getContents());
+        } catch (GuzzleException $e) {
+            if ($e->getCode() === 404) {
+                return [];
+            }
+
+            throw MetadataServiceException::fromGuzzleException($e);
+        }
     }
 
     /**
-     * @param bool $create
-     * @return mixed|null
-     * @throws MetadataServiceException
+     * @throws MetadataServiceException if learning object could not be retrieved or created
      */
     public function getLearningObject(bool $create = false)
     {
-        $learningObject = null;
-
         try {
-            $path = sprintf(self::LEARNING_OBJECTS_URL, $this->entityGuid);
-            $response = $this->client->get($path);
-            $object = json_decode($response->getBody()->getContents(), false);
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                throw new MetadataServiceException("Error decoding learning object.");
-            }
-            $learningObject = $object;
-        } catch (ClientException $e) {
-            // Learning object not found is OK. Everything else is not OK.
-            if ($e->getCode() !== 404) {
-                throw $e;
-            }
-            if ($create) {
-                $this->setEntityType(self::ENTITYTYPE_RESOURCE);
-                if ($id = $this->createId()) {
-                    $learningObject = $this->getLearningObject();
-                }
-            }
-        }
+            $response = $this->client->get(sprintf(self::LEARNING_OBJECTS_URL, $this->entityGuid));
+            $learningObject = guzzle_json_decode($response->getBody()->getContents(), false);
 
-        return $learningObject;
+            if (!is_object($learningObject)) {
+                throw new MalformedJsonException('result was expected to be object');
+            }
+
+            return $learningObject;
+        } catch (GuzzleException $e) {
+            if ($create && $e->getCode() === 404) {
+                $this->setEntityType(self::ENTITYTYPE_RESOURCE);
+                $this->createId();
+
+                return $this->getLearningObject();
+            }
+
+            throw MetadataServiceException::fromGuzzleException($e);
+        }
     }
 }

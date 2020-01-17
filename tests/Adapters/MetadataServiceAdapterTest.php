@@ -3,14 +3,6 @@
 namespace {
     class Log
     {
-        public static function error($error)
-        {
-        }
-
-        public static function debug($message)
-        {
-        }
-
         public static function warning($message)
         {
         }
@@ -21,15 +13,15 @@ namespace {
 namespace Cerpus\MetadataServiceClientTests\Adapters {
 
     use Cerpus\MetadataServiceClient\Adapters\CerpusMetadataServiceAdapter;
+    use Cerpus\MetadataServiceClient\Exceptions\HttpException;
+    use Cerpus\MetadataServiceClient\Exceptions\MalformedJsonException;
     use Cerpus\MetadataServiceClientTests\Utils\MetadataServiceTestCase;
     use Cerpus\MetadataServiceClientTests\Utils\Traits\WithFaker;
     use GuzzleHttp\Client;
-    use GuzzleHttp\Exception\BadResponseException;
-    use GuzzleHttp\Exception\RequestException;
     use GuzzleHttp\Handler\MockHandler;
     use GuzzleHttp\HandlerStack;
-    use GuzzleHttp\Psr7\Request;
     use GuzzleHttp\Psr7\Response;
+    use InvalidArgumentException;
     use Teapot\StatusCode;
 
     /**
@@ -54,12 +46,15 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
          */
         public function getUuid_noMatch_thenFail()
         {
+            $this->expectException(MalformedJsonException::class);
+            $this->expectExceptionMessage('json_decode failed');
+
             $client = $this->getClient([
                 new Response(StatusCode::OK, [], ''),
             ]);
 
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
-            $this->assertFalse($metadataservice->getUuid(false));
+            $metadataservice->getUuid(false);
         }
 
         /**
@@ -67,12 +62,15 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
          */
         public function getUuid_badRequest_thenFail()
         {
+            $this->expectException(HttpException::class);
+            $this->expectExceptionCode(StatusCode::BAD_REQUEST);
+
             $client = $this->getClient([
                 new Response(StatusCode::BAD_REQUEST),
             ]);
 
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
-            $this->assertFalse($metadataservice->getUuid(false));
+            $metadataservice->getUuid(false);
         }
 
         /**
@@ -82,14 +80,9 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
         {
             $entityUuid = $this->faker->uuid;
 
-            $client = $this->getMockBuilder(Client::class)
-                ->setMethods(['get'])
-                ->getMock();
-
-            $client
-                ->expects(self::once())
-                ->method('get')
-                ->willReturn(new Response(StatusCode::OK, [], json_encode((object)['id' => $entityUuid])));
+            $client = $this->getClient([
+                new Response(StatusCode::OK, [], json_encode((object)['id' => $entityUuid])),
+            ]);
 
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
             $this->assertEquals($entityUuid, $metadataservice->getUuid(false));
@@ -103,7 +96,7 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
         {
             $entityUuid = $this->faker->uuid;
             $client = $this->getClient([
-                new \Exception("Not found", StatusCode::NOT_FOUND),
+                new Response(StatusCode::NOT_FOUND),
                 new Response(StatusCode::OK, [], json_encode((object)['id' => $entityUuid])),
             ]);
 
@@ -113,14 +106,14 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
 
         /**
          * @test
-         * @expectedException Cerpus\MetadataServiceClient\Exceptions\MetadataServiceException
-         * @expectedExceptionCode 1001
-         * @expectedExceptionMessage LearningObject not found
          */
         public function getData_noResourcesId_thenFail()
         {
+            $this->expectException(HttpException::class);
+            $this->expectExceptionCode(StatusCode::NOT_FOUND);
+
             $client = $this->getClient([
-                new \Exception("Not found", StatusCode::NOT_FOUND),
+                new Response(StatusCode::NOT_FOUND),
             ]);
 
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
@@ -129,15 +122,15 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
 
         /**
          * @test
-         * @expectedException Cerpus\MetadataServiceClient\Exceptions\MetadataServiceException
-         * @expectedExceptionCode 1005
-         * @expectedExceptionMessage Service error
          */
         public function getData_noMatchWithUnexpectedErrorMessage_thenFail()
         {
+            $this->expectException(HttpException::class);
+            $this->expectExceptionCode(StatusCode::BAD_REQUEST);
+
             $client = $this->getClient([
                 new Response(StatusCode::OK, [], json_encode((object)['id' => $this->faker->uuid])),
-                new \Exception("Not found", StatusCode::BAD_REQUEST),
+                new Response(StatusCode::BAD_REQUEST, [], 'Bad request'),
             ]);
 
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
@@ -151,7 +144,7 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
         {
             $client = $this->getClient([
                 new Response(StatusCode::OK, [], json_encode((object)['id' => $this->faker->uuid])),
-                new \Exception("Not found", StatusCode::NOT_FOUND),
+                new Response(StatusCode::NOT_FOUND),
             ]);
 
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
@@ -163,13 +156,15 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
          */
         public function getData_unexpectedReturnCode_thenFail()
         {
+            $this->expectException(HttpException::class);
+
             $client = $this->getClient([
                 new Response(StatusCode::OK, [], json_encode((object)['id' => $this->faker->uuid])),
-                new Response(StatusCode::CREATED, [], ''),
+                new Response(StatusCode::FORBIDDEN, [], ''),
             ]);
 
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
-            $this->assertNull($metadataservice->getData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS));
+            $metadataservice->getData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS);
         }
 
         /**
@@ -208,16 +203,16 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
         /**
          * @test
          */
-        public function getAllMetadata_noId_thenFail()
+        public function getAllMetadata_noUuid_thenFail()
         {
+            $this->expectException(HttpException::class);
+
             $client = $this->getClient([
-                new \Exception("Not found", StatusCode::NOT_FOUND),
+                new Response(StatusCode::NOT_FOUND),
             ]);
 
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
-            $allMetadata = $metadataservice->getAllMetaData();
-            $this->assertInternalType('array', $allMetadata);
-            $this->assertCount(0, $allMetadata);
+            $metadataservice->getAllMetaData();
         }
 
         /**
@@ -249,15 +244,15 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
 
         /**
          * @test
-         * @expectedException Cerpus\MetadataServiceClient\Exceptions\MetadataServiceException
-         * @expectedExceptionCode 1003
-         * @expectedExceptionMessage Failed creating LearningObject
          */
         public function createData_noUuid_thenFail()
         {
+            $this->expectException(HttpException::class);
+            $this->expectExceptionCode(StatusCode::NOT_FOUND);
+
             $client = $this->getClient([
-                new \Exception("Not found", StatusCode::NOT_FOUND),
-                new \Exception("Not found", StatusCode::NOT_FOUND),
+                new Response(StatusCode::NOT_FOUND),
+                new Response(StatusCode::NOT_FOUND),
             ]);
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
             $metadataservice->createData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, [
@@ -267,15 +262,15 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
 
         /**
          * @test
-         * @expectedException Cerpus\MetadataServiceClient\Exceptions\MetadataServiceException
-         * @expectedExceptionCode 1002
-         * @expectedExceptionMessage Failed setting metadata of type Unknown_type
          */
         public function createData_unknownType_thenFail()
         {
+            $this->expectException(InvalidArgumentException::class);
+            $this->expectExceptionMessage('Unknown metaType Unknown_type');
+
             $entityUuid = $this->faker->uuid;
             $client = $this->getClient([
-                new \Exception("Not found", StatusCode::NOT_FOUND),
+                new Response(StatusCode::NOT_FOUND),
                 new Response(StatusCode::OK, [], json_encode((object)['id' => $entityUuid])),
             ]);
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
@@ -292,7 +287,7 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
             $entityUuid = $this->faker->uuid;
             $keyword = $this->faker->word;
             $client = $this->getClient([
-                new \Exception("Not found", StatusCode::NOT_FOUND),
+                new Response(StatusCode::NOT_FOUND),
                 new Response(StatusCode::OK, [], json_encode((object)[
                     'id' => $entityUuid
                 ])),
@@ -313,31 +308,34 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
          */
         public function createData_emptyResponse_thenFail()
         {
+            $this->expectException(MalformedJsonException::class);
+            $this->expectExceptionMessage('json_decode failed');
+
             $entityUuid = $this->faker->uuid;
             $keyword = $this->faker->word;
             $client = $this->getClient([
-                new \Exception("Not found", StatusCode::NOT_FOUND),
+                new Response(StatusCode::NOT_FOUND, [], 'Not found'),
                 new Response(StatusCode::OK, [], json_encode((object)[
                     'id' => $entityUuid
                 ])),
                 new Response(StatusCode::OK, [], null),
             ]);
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
-            $this->assertFalse($metadataservice->createData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, $keyword));
+            $metadataservice->createData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, $keyword);
         }
 
         /**
          * @test
-         * @expectedException Cerpus\MetadataServiceClient\Exceptions\MetadataServiceException
-         * @expectedExceptionCode 1002
-         * @expectedExceptionMessage Failed setting metadata of type keywords
          */
         public function createData_errorResponse_thenFail()
         {
+            $this->expectException(HttpException::class);
+            $this->expectExceptionCode(StatusCode::BAD_REQUEST);
+
             $entityUuid = $this->faker->uuid;
             $keyword = $this->faker->word;
             $client = $this->getClient([
-                new \Exception("Not found", StatusCode::NOT_FOUND),
+                new Response(StatusCode::NOT_FOUND),
                 new Response(StatusCode::OK, [], json_encode((object)[
                     'id' => $entityUuid
                 ])),
@@ -352,6 +350,9 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
          */
         public function createDataFromArray_noUuid_thenFail()
         {
+            $this->expectException(MalformedJsonException::class);
+            $this->expectExceptionMessage('json_decode failed');
+
             $client = $this->getClient([
                 new Response(StatusCode::OK, [], ''),
             ]);
@@ -370,7 +371,7 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
             $entityUuid = $this->faker->uuid;
             $keyword = $this->faker->word;
             $client = $this->getClient([
-                new \Exception("Not found", StatusCode::NOT_FOUND),
+                new Response(StatusCode::NOT_FOUND),
                 new Response(StatusCode::OK, [], json_encode((object)[
                     'id' => $entityUuid
                 ])),
@@ -406,7 +407,7 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
             $entityUuid = $this->faker->uuid;
             $keyword = $this->faker->word;
             $client = $this->getClient([
-                new \Exception("Not found", StatusCode::NOT_FOUND),
+                new Response(StatusCode::NOT_FOUND),
                 new Response(StatusCode::OK, [], json_encode((object)[
                     'id' => $entityUuid
                 ])),
@@ -432,16 +433,16 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
 
         /**
          * @test
-         * @expectedException Cerpus\MetadataServiceClient\Exceptions\MetadataServiceException
-         * @expectedExceptionCode 1009
-         * @expectedExceptionMessage Failed creating data from array
          */
         public function createDataFromArray_invalidParameters_thenFail()
         {
+            $this->expectException(HttpException::class);
+            $this->expectExceptionCode(StatusCode::BAD_REQUEST);
+
             $entityUuid = $this->faker->uuid;
             $keyword = $this->faker->word;
             $client = $this->getClient([
-                new \Exception("Not found", StatusCode::NOT_FOUND),
+                new Response(StatusCode::NOT_FOUND),
                 new Response(StatusCode::OK, [], json_encode((object)[
                     'id' => $entityUuid
                 ])),
@@ -460,16 +461,20 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
          */
         public function deleteData_noUuid_thenFail()
         {
+            $this->expectException(HttpException::class);
+            $this->expectExceptionCode(StatusCode::NOT_FOUND);
+
             $client = $this->getClient([
-                new \Exception("Not found", StatusCode::NOT_FOUND),
-                new \Exception("Not found", StatusCode::NOT_FOUND),
+                new Response(StatusCode::NOT_FOUND),
+                new Response(StatusCode::NOT_FOUND),
             ]);
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
-            $this->assertFalse($metadataservice->deleteData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, $this->faker->uuid));
+            $metadataservice->deleteData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, $this->faker->uuid);
         }
 
         /**
          * @test
+         * @doesNotPerformAssertions
          */
         public function deleteData_valid_thenSuccess()
         {
@@ -482,17 +487,17 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
             ]);
 
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
-            $this->assertTrue($metadataservice->deleteData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, $this->faker->uuid));
+            $metadataservice->deleteData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, $this->faker->uuid);
         }
 
         /**
          * @test
-         * @expectedException Cerpus\MetadataServiceClient\Exceptions\MetadataServiceException
-         * @expectedExceptionCode 1006
-         * @expectedExceptionMessage Failed deleting metadata. Type: keywords, Id: uuidTest
          */
-        public function deleteData_valid_thenFail()
+        public function deleteData_notFound_thenFail()
         {
+            $this->expectException(HttpException::class);
+            $this->expectExceptionCode(StatusCode::NOT_FOUND);
+
             $entityUuid = $this->faker->uuid;
             $client = $this->getClient([
                 new Response(StatusCode::OK, [], json_encode((object)[
@@ -510,16 +515,19 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
          */
         public function deleteData_invalidResponse_thenFail()
         {
+            $this->expectException(HttpException::class);
+            $this->expectExceptionCode(StatusCode::FORBIDDEN);
+
             $entityUuid = $this->faker->uuid;
             $client = $this->getClient([
                 new Response(StatusCode::OK, [], json_encode((object)[
                     'id' => $entityUuid
                 ])),
-                new Response(StatusCode::ACCEPTED),
+                new Response(StatusCode::FORBIDDEN),
             ]);
 
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
-            $this->assertFalse($metadataservice->deleteData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, 'uuidTest'));
+            $metadataservice->deleteData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, 'uuidTest');
         }
 
         /**
@@ -527,22 +535,26 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
          */
         public function updateData_noUuid_thenFail()
         {
+            $id = $this->faker->uuid;
+            $this->expectException(HttpException::class);
+            $this->expectExceptionCode(StatusCode::NOT_FOUND);
+
             $client = $this->getClient([
-                new \Exception("Not found", StatusCode::NOT_FOUND),
-                new \Exception("Not found", StatusCode::NOT_FOUND),
+                new Response(StatusCode::NOT_FOUND),
+                new Response(StatusCode::NOT_FOUND),
             ]);
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
-            $this->assertFalse($metadataservice->updateData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, $this->faker->uuid, "dummy"));
+            $metadataservice->updateData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, $id, "dummy");
         }
 
         /**
          * @test
-         * @expectedException Cerpus\MetadataServiceClient\Exceptions\MetadataServiceException
-         * @expectedExceptionCode 1007
-         * @expectedExceptionMessage Failed updating metadata. Type: "NotValidMetaType", Id: "uuidTest"
          */
         public function updateData_invalidType_thenFail()
         {
+            $this->expectException(InvalidArgumentException::class);
+            $this->expectExceptionMessage("Unknown metaType 'NotValidMetaType'");
+
             $keyword = $this->faker->word;
             $client = $this->getClient([
                 new Response(StatusCode::OK, [], json_encode((object)[
@@ -588,12 +600,15 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
          */
         public function updateData_invalidResponse_thenFail()
         {
+            $this->expectException(HttpException::class);
+            $this->expectExceptionCode(StatusCode::FORBIDDEN);
+
             $keyword = $this->faker->word;
             $client = $this->getClient([
                 new Response(StatusCode::OK, [], json_encode((object)[
                     'id' => $this->faker->uuid
                 ])),
-                new Response(StatusCode::ACCEPTED, [], json_encode((object)[
+                new Response(StatusCode::FORBIDDEN, [], json_encode((object)[
                     'id' => $this->faker->uuid,
                     'keyword' => $keyword,
                 ])),
@@ -601,23 +616,23 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
             ]);
 
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
-            $this->assertFalse($metadataservice->updateData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, $this->faker->uuid, $keyword));
+            $metadataservice->updateData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, $this->faker->uuid, $keyword);
         }
 
         /**
          * @test
-         * @expectedException Cerpus\MetadataServiceClient\Exceptions\MetadataServiceException
-         * @expectedExceptionCode 1003
-         * @expectedExceptionMessage Failed creating LearningObject
          */
         public function addGoal_noUuid_thenFail()
         {
+            $this->expectException(HttpException::class);
+            $this->expectExceptionCode(StatusCode::NOT_FOUND);
+
             $client = $this->getClient([
-                new \Exception("Not found", StatusCode::NOT_FOUND),
-                new \Exception("Not found", StatusCode::NOT_FOUND),
+                new Response(StatusCode::NOT_FOUND),
+                new Response(StatusCode::NOT_FOUND),
             ]);
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
-            $this->assertFalse($metadataservice->addGoal($this->faker->uuid));
+            $metadataservice->addGoal($this->faker->uuid);
         }
 
         /**
@@ -669,17 +684,32 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
 
         /**
          * @test
-         * @expectedException Cerpus\MetadataServiceClient\Exceptions\MetadataServiceException
-         * @expectedExceptionCode 1010
-         * @expectedExceptionMessage Could not load keywords
          */
         public function searchForKeywords_invalidServerResponse_thenFail()
         {
+            $this->expectException(HttpException::class);
+            $this->expectExceptionCode(StatusCode::BAD_REQUEST);
+
             $client = $this->getClient([
                 new Response(StatusCode::BAD_REQUEST),
             ]);
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
             $metadataservice->searchForKeywords("m");
+        }
+
+        /**
+         * @test
+         */
+        public function fetchAllCustomFields_invalidServerResponse_thenFail()
+        {
+            $this->expectException(HttpException::class);
+            $this->expectExceptionCode(StatusCode::BAD_REQUEST);
+
+            $client = $this->getClient([
+                new Response(StatusCode::BAD_REQUEST),
+            ]);
+            $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
+            $metadataservice->fetchAllCustomFields();
         }
     }
 }
