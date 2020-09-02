@@ -661,6 +661,92 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
         /**
          * @test
          */
+        public function addPublish_valid_thenSuccess()
+        {
+            $client = $this->getClient([
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'id' => $this->faker->uuid
+                ])),
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'isCollection' => false,
+                ])),
+                new Response(StatusCode::NOT_FOUND, [], json_encode((object)[
+                    'error' => '{"error":{"message":"Learningobject or field was not found"}}',
+                ])),
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'id' => $this->faker->uuid
+                ])),
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'id' => $this->faker->uuid,
+                    'name' => 'published',
+                    'value' => true,
+                ])),
+            ]);
+
+            $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
+            $metadataservice->addCustomFieldDefinition('published', 'boolean');
+            $createData = $metadataservice->setCustomFieldValue('published', true);
+            $this->assertTrue($createData->value);
+            $this->assertEquals('published', $createData->name);
+        }
+
+        /**
+         * @test
+         */
+        public function addPublish_notFound_thenFail()
+        {
+            $this->expectException(HttpException::class);
+
+            $client = $this->getClient([
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'id' => $this->faker->uuid
+                ])),
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'isCollection' => false,
+                ])),
+                new Response(StatusCode::NOT_FOUND, [], json_encode((object)[
+                    'error' => '{"error":{"message":"Learningobject or field was not found"}}',
+                ])),
+                new Response(StatusCode::NOT_FOUND, [], json_encode((object)[
+                    'error' => $this->faker->sentence
+                ])),
+            ]);
+
+            $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
+            $metadataservice->addCustomFieldDefinition('published', 'boolean');
+            $metadataservice->setCustomFieldValue('published', true);
+        }
+
+        /**
+         * @test
+         */
+        public function addPublish_invalidId_thenFail()
+        {
+            $this->expectException(MalformedJsonException::class);
+
+            $client = $this->getClient([
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'id' => $this->faker->uuid
+                ])),
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'isCollection' => false,
+                ])),
+                new Response(StatusCode::NOT_FOUND, [], json_encode((object)[
+                    'error' => '{"error":{"message":"Learningobject or field was not found"}}',
+                ])),
+                new Response(StatusCode::OK, [], json_encode((object)[
+                    'error' => $this->faker->sentence
+                ])),
+            ]);
+
+            $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
+            $metadataservice->addCustomFieldDefinition('published', 'boolean');
+            $metadataservice->setCustomFieldValue('published', true);
+        }
+
+        /**
+         * @test
+         */
         public function searchForKeywords_validSearchtext_thenSuccess()
         {
             $client = $this->getClient([
