@@ -3,6 +3,7 @@
 namespace Cerpus\MetadataServiceClient\Adapters;
 
 use Cerpus\MetadataServiceClient\Contracts\MetadataServiceContract;
+use Cerpus\MetadataServiceClient\Exceptions\LearningObjectNotFoundException;
 use Cerpus\MetadataServiceClient\Exceptions\MalformedJsonException;
 use Cerpus\MetadataServiceClient\Exceptions\MetadataServiceException;
 use GuzzleHttp\Client;
@@ -514,11 +515,23 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
     private function setCustomFieldPlainValue(string $fieldName, $value)
     {
         try {
+            return $this->setCustomField($fieldName, $value);
+        } catch (LearningObjectNotFoundException $e) {
+            $this->createId();
+            return $this->setCustomField($fieldName, $value, true);
+        }
+    }
+
+    private function setCustomField(string $fieldName, $value, $ignoreNotFound = false)
+    {
+        try {
             $url = sprintf(self::CUSTOM_FIELD_VALUE_URL, rawurlencode($this->entityGuid), rawurlencode($fieldName));
             $response = $this->client->put($url, ['json' => ['value' => $value]]);
-
             return guzzle_json_decode($response->getBody()->getContents(), false);
-        } catch (GuzzleException $e) {
+        } catch (GuzzleException $e){
+            if ($e->getCode() === 404 && !$ignoreNotFound){
+                throw new LearningObjectNotFoundException();
+            }
             throw MetadataServiceException::fromGuzzleException($e);
         }
     }
