@@ -1,9 +1,14 @@
 <?php
 
 namespace {
+
     class Log
     {
         public static function warning($message)
+        {
+        }
+
+        public static function debug($message)
         {
         }
     }
@@ -26,6 +31,7 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
 
     /**
      * Class MetadataServiceAdapterTest
+     *
      * @package Cerpus\MetadataServiceClientTests\Adapters
      */
     class MetadataServiceAdapterTest extends MetadataServiceTestCase
@@ -38,6 +44,7 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
         {
             $mock = new MockHandler($responses);
             $handler = HandlerStack::create($mock);
+
             return new Client(['handler' => $handler]);
         }
 
@@ -81,7 +88,7 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
             $entityUuid = $this->faker->uuid;
 
             $client = $this->getClient([
-                new Response(StatusCode::OK, [], json_encode((object)['id' => $entityUuid])),
+                new Response(StatusCode::OK, [], json_encode((object) ['id' => $entityUuid])),
             ]);
 
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
@@ -97,7 +104,7 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
             $entityUuid = $this->faker->uuid;
             $client = $this->getClient([
                 new Response(StatusCode::NOT_FOUND),
-                new Response(StatusCode::OK, [], json_encode((object)['id' => $entityUuid])),
+                new Response(StatusCode::OK, [], json_encode((object) ['id' => $entityUuid])),
             ]);
 
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
@@ -129,7 +136,7 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
             $this->expectExceptionCode(StatusCode::BAD_REQUEST);
 
             $client = $this->getClient([
-                new Response(StatusCode::OK, [], json_encode((object)['id' => $this->faker->uuid])),
+                new Response(StatusCode::OK, [], json_encode((object) ['id' => $this->faker->uuid])),
                 new Response(StatusCode::BAD_REQUEST, [], 'Bad request'),
             ]);
 
@@ -143,7 +150,7 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
         public function getData_noMatch_thenFail()
         {
             $client = $this->getClient([
-                new Response(StatusCode::OK, [], json_encode((object)['id' => $this->faker->uuid])),
+                new Response(StatusCode::OK, [], json_encode((object) ['id' => $this->faker->uuid])),
                 new Response(StatusCode::NOT_FOUND),
             ]);
 
@@ -160,7 +167,7 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
             $this->expectExceptionCode(StatusCode::FORBIDDEN);
 
             $client = $this->getClient([
-                new Response(StatusCode::OK, [], json_encode((object)['id' => $this->faker->uuid])),
+                new Response(StatusCode::OK, [], json_encode((object) ['id' => $this->faker->uuid])),
                 new Response(StatusCode::FORBIDDEN, [], ''),
             ]);
 
@@ -175,16 +182,16 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
         {
             $entityUuid = $this->faker->uuid;
             $client = $this->getClient([
-                new Response(StatusCode::OK, [], json_encode((object)['id' => $entityUuid])),
+                new Response(StatusCode::OK, [], json_encode((object) ['id' => $entityUuid])),
                 new Response(StatusCode::OK, [], json_encode([
-                    (object)[
-                        "id" => "8e60818f-602b-439b-a6b5-98e999f603ad",
-                        "keyword" => "geografi"
+                    (object) [
+                        "id"      => "8e60818f-602b-439b-a6b5-98e999f603ad",
+                        "keyword" => "geografi",
                     ],
-                    (object)[
-                        "id" => "99b45447-42d9-4c9f-8b98-039993c9959c",
-                        "keyword" => "historie"
-                    ]
+                    (object) [
+                        "id"      => "99b45447-42d9-4c9f-8b98-039993c9959c",
+                        "keyword" => "historie",
+                    ],
                 ])),
             ]);
 
@@ -223,10 +230,11 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
         public function getAllMetadata_valid_thenSuccess()
         {
             $client = $this->getClient([
-                new Response(StatusCode::OK, [], json_encode((object)['id' => $this->faker->uuid])),
+                new Response(StatusCode::OK, [], json_encode((object) ['id' => $this->faker->uuid])),
                 new Response(StatusCode::OK, [], json_encode([])),
                 new Response(StatusCode::OK, [], json_encode([])),
-                new Response(StatusCode::OK, [], json_encode([(object)['id' => $this->faker->uuid, 'keyword' => $this->faker->word]])),
+                new Response(StatusCode::OK, [],
+                    json_encode([(object) ['id' => $this->faker->uuid, 'keyword' => $this->faker->word]])),
                 new Response(StatusCode::OK, [], json_encode([])),
                 new Response(StatusCode::OK, [], json_encode([])),
                 new Response(StatusCode::OK, [], json_encode([])),
@@ -258,7 +266,7 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
             ]);
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
             $metadataservice->createData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, [
-                'keyword' => $this->faker->word
+                'keyword' => $this->faker->word,
             ]);
         }
 
@@ -273,11 +281,11 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
             $entityUuid = $this->faker->uuid;
             $client = $this->getClient([
                 new Response(StatusCode::NOT_FOUND),
-                new Response(StatusCode::OK, [], json_encode((object)['id' => $entityUuid])),
+                new Response(StatusCode::OK, [], json_encode((object) ['id' => $entityUuid])),
             ]);
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
             $metadataservice->createData("Unknown_type", [
-                'keyword' => $this->faker->word
+                'keyword' => $this->faker->word,
             ]);
         }
 
@@ -290,11 +298,11 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
             $keyword = $this->faker->word;
             $client = $this->getClient([
                 new Response(StatusCode::NOT_FOUND),
-                new Response(StatusCode::OK, [], json_encode((object)[
-                    'id' => $entityUuid
+                new Response(StatusCode::OK, [], json_encode((object) [
+                    'id' => $entityUuid,
                 ])),
-                new Response(StatusCode::OK, [], json_encode((object)[
-                    'id' => $this->faker->uuid,
+                new Response(StatusCode::OK, [], json_encode((object) [
+                    'id'      => $this->faker->uuid,
                     'keyword' => $keyword,
                 ])),
             ]);
@@ -317,8 +325,8 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
             $keyword = $this->faker->word;
             $client = $this->getClient([
                 new Response(StatusCode::NOT_FOUND, [], 'Not found'),
-                new Response(StatusCode::OK, [], json_encode((object)[
-                    'id' => $entityUuid
+                new Response(StatusCode::OK, [], json_encode((object) [
+                    'id' => $entityUuid,
                 ])),
                 new Response(StatusCode::OK, [], null),
             ]);
@@ -338,8 +346,8 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
             $keyword = $this->faker->word;
             $client = $this->getClient([
                 new Response(StatusCode::NOT_FOUND),
-                new Response(StatusCode::OK, [], json_encode((object)[
-                    'id' => $entityUuid
+                new Response(StatusCode::OK, [], json_encode((object) [
+                    'id' => $entityUuid,
                 ])),
                 new Response(StatusCode::BAD_REQUEST, [], null),
             ]);
@@ -374,25 +382,25 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
             $keyword = $this->faker->word;
             $client = $this->getClient([
                 new Response(StatusCode::NOT_FOUND),
-                new Response(StatusCode::OK, [], json_encode((object)[
-                    'id' => $entityUuid
+                new Response(StatusCode::OK, [], json_encode((object) [
+                    'id' => $entityUuid,
                 ])),
-                new Response(StatusCode::OK, [], json_encode((object)[
-                    'id' => $this->faker->uuid,
+                new Response(StatusCode::OK, [], json_encode((object) [
+                    'id'      => $this->faker->uuid,
                     'keyword' => $keyword,
                 ])),
-                new Response(StatusCode::OK, [], json_encode((object)[
-                    'id' => $this->faker->uuid,
+                new Response(StatusCode::OK, [], json_encode((object) [
+                    'id'               => $this->faker->uuid,
                     'subjectDeweyCode' => 7,
                 ])),
             ]);
 
             $data = [
                 CerpusMetadataServiceAdapter::METATYPE_KEYWORDS => [
-                    (object)['keyword' => $keyword],
+                    (object) ['keyword' => $keyword],
                 ],
                 CerpusMetadataServiceAdapter::METATYPE_SUBJECTS => [
-                    (object)['subjectDeweyCode' => 7]
+                    (object) ['subjectDeweyCode' => 7],
                 ],
             ];
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
@@ -410,22 +418,22 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
             $keyword = $this->faker->word;
             $client = $this->getClient([
                 new Response(StatusCode::NOT_FOUND),
-                new Response(StatusCode::OK, [], json_encode((object)[
-                    'id' => $entityUuid
+                new Response(StatusCode::OK, [], json_encode((object) [
+                    'id' => $entityUuid,
                 ])),
-                new Response(StatusCode::OK, [], json_encode((object)[
-                    'id' => $this->faker->uuid,
+                new Response(StatusCode::OK, [], json_encode((object) [
+                    'id'      => $this->faker->uuid,
                     'keyword' => $keyword,
                 ])),
-                new Response(StatusCode::OK, [], json_encode((object)[
-                    'id' => $this->faker->uuid,
+                new Response(StatusCode::OK, [], json_encode((object) [
+                    'id'               => $this->faker->uuid,
                     'subjectDeweyCode' => 7,
                 ])),
             ]);
 
             $data = [
-                CerpusMetadataServiceAdapter::METATYPE_KEYWORDS => (object)['keyword' => $keyword],
-                CerpusMetadataServiceAdapter::METATYPE_SUBJECTS => (object)['subjectDeweyCode' => 7],
+                CerpusMetadataServiceAdapter::METATYPE_KEYWORDS => (object) ['keyword' => $keyword],
+                CerpusMetadataServiceAdapter::METATYPE_SUBJECTS => (object) ['subjectDeweyCode' => 7],
             ];
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
             $createdData = $metadataservice->createDataFromArray($data);
@@ -445,14 +453,14 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
             $keyword = $this->faker->word;
             $client = $this->getClient([
                 new Response(StatusCode::NOT_FOUND),
-                new Response(StatusCode::OK, [], json_encode((object)[
-                    'id' => $entityUuid
+                new Response(StatusCode::OK, [], json_encode((object) [
+                    'id' => $entityUuid,
                 ])),
                 new Response(StatusCode::BAD_REQUEST, [], "Invalid structure"),
             ]);
 
             $data = [
-                CerpusMetadataServiceAdapter::METATYPE_KEYWORDS => (object)['keyword' => $keyword],
+                CerpusMetadataServiceAdapter::METATYPE_KEYWORDS => (object) ['keyword' => $keyword],
             ];
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
             $metadataservice->createDataFromArray($data);
@@ -482,14 +490,15 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
         {
             $entityUuid = $this->faker->uuid;
             $client = $this->getClient([
-                new Response(StatusCode::OK, [], json_encode((object)[
-                    'id' => $entityUuid
+                new Response(StatusCode::OK, [], json_encode((object) [
+                    'id' => $entityUuid,
                 ])),
                 new Response(StatusCode::OK),
             ]);
 
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
-            $this->assertTrue($metadataservice->deleteData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, $this->faker->uuid));
+            $this->assertTrue($metadataservice->deleteData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS,
+                $this->faker->uuid));
         }
 
         /**
@@ -499,14 +508,15 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
         {
             $entityUuid = $this->faker->uuid;
             $client = $this->getClient([
-                new Response(StatusCode::OK, [], json_encode((object)[
-                    'id' => $entityUuid
+                new Response(StatusCode::OK, [], json_encode((object) [
+                    'id' => $entityUuid,
                 ])),
                 new Response(StatusCode::NOT_FOUND),
             ]);
 
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
-            $this->assertFalse($metadataservice->deleteData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, 'uuidTest'));
+            $this->assertFalse($metadataservice->deleteData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS,
+                'uuidTest'));
         }
 
         /**
@@ -519,8 +529,8 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
 
             $entityUuid = $this->faker->uuid;
             $client = $this->getClient([
-                new Response(StatusCode::OK, [], json_encode((object)[
-                    'id' => $entityUuid
+                new Response(StatusCode::OK, [], json_encode((object) [
+                    'id' => $entityUuid,
                 ])),
                 new Response(StatusCode::FORBIDDEN),
             ]);
@@ -556,11 +566,11 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
 
             $keyword = $this->faker->word;
             $client = $this->getClient([
-                new Response(StatusCode::OK, [], json_encode((object)[
-                    'id' => $this->faker->uuid
-                ])),
-                new Response(StatusCode::OK, [], json_encode((object)[
+                new Response(StatusCode::OK, [], json_encode((object) [
                     'id' => $this->faker->uuid,
+                ])),
+                new Response(StatusCode::OK, [], json_encode((object) [
+                    'id'      => $this->faker->uuid,
                     'keyword' => $keyword,
                 ])),
 
@@ -577,18 +587,19 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
         {
             $keyword = $this->faker->word;
             $client = $this->getClient([
-                new Response(StatusCode::OK, [], json_encode((object)[
-                    'id' => $this->faker->uuid
-                ])),
-                new Response(StatusCode::OK, [], json_encode((object)[
+                new Response(StatusCode::OK, [], json_encode((object) [
                     'id' => $this->faker->uuid,
+                ])),
+                new Response(StatusCode::OK, [], json_encode((object) [
+                    'id'      => $this->faker->uuid,
                     'keyword' => $keyword,
                 ])),
 
             ]);
 
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
-            $updatedData = $metadataservice->updateData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS, $this->faker->uuid, $keyword);
+            $updatedData = $metadataservice->updateData(CerpusMetadataServiceAdapter::METATYPE_KEYWORDS,
+                $this->faker->uuid, $keyword);
             $this->assertInternalType('object', $updatedData);
             $this->assertObjectHasAttribute('id', $updatedData);
             $this->assertObjectHasAttribute('keyword', $updatedData);
@@ -604,11 +615,11 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
 
             $keyword = $this->faker->word;
             $client = $this->getClient([
-                new Response(StatusCode::OK, [], json_encode((object)[
-                    'id' => $this->faker->uuid
-                ])),
-                new Response(StatusCode::FORBIDDEN, [], json_encode((object)[
+                new Response(StatusCode::OK, [], json_encode((object) [
                     'id' => $this->faker->uuid,
+                ])),
+                new Response(StatusCode::FORBIDDEN, [], json_encode((object) [
+                    'id'      => $this->faker->uuid,
                     'keyword' => $keyword,
                 ])),
 
@@ -641,11 +652,11 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
         {
             $learningGoalId = $this->faker->uuid;
             $client = $this->getClient([
-                new Response(StatusCode::OK, [], json_encode((object)[
-                    'id' => $this->faker->uuid
-                ])),
-                new Response(StatusCode::OK, [], json_encode((object)[
+                new Response(StatusCode::OK, [], json_encode((object) [
                     'id' => $this->faker->uuid,
+                ])),
+                new Response(StatusCode::OK, [], json_encode((object) [
+                    'id'             => $this->faker->uuid,
                     'learningGoalId' => $learningGoalId,
                 ])),
 
@@ -664,21 +675,21 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
         public function addPublish_valid_thenSuccess()
         {
             $client = $this->getClient([
-                new Response(StatusCode::OK, [], json_encode((object)[
-                    'id' => $this->faker->uuid
+                new Response(StatusCode::OK, [], json_encode((object) [
+                    'id' => $this->faker->uuid,
                 ])),
-                new Response(StatusCode::OK, [], json_encode((object)[
+                new Response(StatusCode::OK, [], json_encode((object) [
                     'isCollection' => false,
                 ])),
-                new Response(StatusCode::NOT_FOUND, [], json_encode((object)[
+                new Response(StatusCode::NOT_FOUND, [], json_encode((object) [
                     'error' => '{"error":{"message":"Learningobject or field was not found"}}',
                 ])),
-                new Response(StatusCode::OK, [], json_encode((object)[
-                    'id' => $this->faker->uuid
-                ])),
-                new Response(StatusCode::OK, [], json_encode((object)[
+                new Response(StatusCode::OK, [], json_encode((object) [
                     'id' => $this->faker->uuid,
-                    'name' => 'published',
+                ])),
+                new Response(StatusCode::OK, [], json_encode((object) [
+                    'id'    => $this->faker->uuid,
+                    'name'  => 'published',
                     'value' => true,
                 ])),
             ]);
@@ -698,17 +709,17 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
             $this->expectException(HttpException::class);
 
             $client = $this->getClient([
-                new Response(StatusCode::OK, [], json_encode((object)[
-                    'id' => $this->faker->uuid
+                new Response(StatusCode::OK, [], json_encode((object) [
+                    'id' => $this->faker->uuid,
                 ])),
-                new Response(StatusCode::OK, [], json_encode((object)[
+                new Response(StatusCode::OK, [], json_encode((object) [
                     'isCollection' => false,
                 ])),
-                new Response(StatusCode::NOT_FOUND, [], json_encode((object)[
+                new Response(StatusCode::NOT_FOUND, [], json_encode((object) [
                     'error' => '{"error":{"message":"Learningobject or field was not found"}}',
                 ])),
-                new Response(StatusCode::NOT_FOUND, [], json_encode((object)[
-                    'error' => $this->faker->sentence
+                new Response(StatusCode::NOT_FOUND, [], json_encode((object) [
+                    'error' => $this->faker->sentence,
                 ])),
             ]);
 
@@ -725,17 +736,17 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
             $this->expectException(MalformedJsonException::class);
 
             $client = $this->getClient([
-                new Response(StatusCode::OK, [], json_encode((object)[
-                    'id' => $this->faker->uuid
+                new Response(StatusCode::OK, [], json_encode((object) [
+                    'id' => $this->faker->uuid,
                 ])),
-                new Response(StatusCode::OK, [], json_encode((object)[
+                new Response(StatusCode::OK, [], json_encode((object) [
                     'isCollection' => false,
                 ])),
-                new Response(StatusCode::NOT_FOUND, [], json_encode((object)[
+                new Response(StatusCode::NOT_FOUND, [], json_encode((object) [
                     'error' => '{"error":{"message":"Learningobject or field was not found"}}',
                 ])),
-                new Response(StatusCode::OK, [], json_encode((object)[
-                    'error' => $this->faker->sentence
+                new Response(StatusCode::OK, [], json_encode((object) [
+                    'error' => $this->faker->sentence,
                 ])),
             ]);
 
@@ -751,14 +762,14 @@ namespace Cerpus\MetadataServiceClientTests\Adapters {
         {
             $client = $this->getClient([
                 new Response(StatusCode::OK, [], json_encode([
-                    (object)[
-                        "id" => "8e60818f-602b-439b-a6b5-98e999f603ad",
-                        "keyword" => "mattematikk"
+                    (object) [
+                        "id"      => "8e60818f-602b-439b-a6b5-98e999f603ad",
+                        "keyword" => "mattematikk",
                     ],
-                    (object)[
-                        "id" => "99b45447-42d9-4c9f-8b98-039993c9959c",
-                        "keyword" => "musikk"
-                    ]
+                    (object) [
+                        "id"      => "99b45447-42d9-4c9f-8b98-039993c9959c",
+                        "keyword" => "musikk",
+                    ],
                 ])),
             ]);
             $metadataservice = new CerpusMetadataServiceAdapter($client, $this->prefix);
