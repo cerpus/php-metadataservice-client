@@ -191,7 +191,7 @@ class CerpusMetadataServiceAdapter implements MetadataServiceContract
                     $theContent = guzzle_json_decode($theResponse->getBody()->getContents(), false);
                     $metaResults[$key] = $theContent;
                 } else {
-                    Log::warning("Response from metadata api is missing [$key]['value']");
+                    Log::debug("Response from metadata api is missing [$key]['value']");
                 }
             }
 
