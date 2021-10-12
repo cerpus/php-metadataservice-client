@@ -1,6 +1,7 @@
 {
   "name": "cerpus/metadataservice-client",
   "description": "Client to handle communication with the Cerpus MetadataService",
+  "license": "GPL-3.0-only",
   "require": {
     "illuminate/support": "^6.0",
     "nesbot/carbon": "^2.0",
@@ -29,16 +30,5 @@
     "psr-4": {
       "Cerpus\\MetadataServiceClientTests\\": "tests"
     }
-  },
-  "repositories": [
-    {
-      "type": "composer",
-      "url": "https://composer.cerpus.net/"
-    },
-    {
-      "type": "composer",
-      "url": "https://composer-3rdparty.cerpus.net/"
-    }
-  ]
-
+  }
 }

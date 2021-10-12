@@ -91,9 +91,12 @@ $cerpusMetadata = new Cerpus\MetadataServiceClient\Adapters\CerpusMetadataServic
 The last one is _not_ recommended.
 
 ## Class methods
-Method calls return an object or throws exceptions on failure. 
+Method calls return an object or throws exceptions on failure.
 
  ## More info
  See the [Confluence Metadata storage service API documentation](https://confluence.cerpus.com/x/hIMJAg)
 
+## License
 
+This package is released under the GNU General Public License 3.0. See the
+`LICENSE` file for more information.
